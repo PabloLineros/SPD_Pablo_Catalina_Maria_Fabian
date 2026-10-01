@@ -1,0 +1,26 @@
+{
+  "name": "nortishop-security-item2",
+  "version": "1.0.0",
+  "description": "Implementación criptográfica para la protección de datos personales en NortiShop - Actividad N°2",
+  "main": "src/demo.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/demo.js",
+    "test": "node --test"
+  },
+  "keywords": [
+    "cybersecurity",
+    "cryptography",
+    "aes-256-gcm",
+    "bcrypt",
+    "tokenization",
+    "hmac",
+    "pci-dss"
+  ],
+  "author": "Catalina Toledo, María Gerónimo, Pablo Lineros",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.7"
+  }
+}
