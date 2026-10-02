@@ -1,96 +1,112 @@
-# NortiShop - Entregable Técnico Criptográfico (ÍTEM II)
+# NortiShop — Implementación de controles criptográficos
 
-**Actividad N°2: "Del caso a los primeros riesgos - Cifrado de Datos Personales"**  
-**Caso:** Caso 1 – Plataforma de comercio electrónico: **NortiShop**  
-**Integrantes:**
+**Entregable técnico — Ítem II**  
+**Actividad:** Del caso a los primeros riesgos: cifrado de datos personales  
+**Caso de estudio:** Plataforma de comercio electrónico NortiShop
+
+## Integrantes
+
 - Catalina Toledo
 - María Gerónimo
 - Pablo Lineros
 
----
+## 1. Descripción del proyecto
 
-## Descripción del Proyecto
+Este proyecto presenta una implementación académica de controles criptográficos para proteger datos personales y transaccionales de la plataforma ficticia NortiShop. Se basa en el análisis de campos sensibles desarrollado en el Ítem I.
 
-Este proyecto implementa la capa de protección criptográfica y seguridad para los datos personales y transaccionales de la plataforma **NortiShop**, tomando como base el diseño de la **Tabla por Campo Sensible** desarrollado en el **ÍTEM I**.
+La solución incorpora los siguientes mecanismos:
 
-Se aplican los siguientes mecanismos conforme al estándar de la industria y las normativas de protección de datos (Ley 21.719 / GDPR / PCI-DSS / OWASP):
+1. **Hashing de contraseñas con `bcryptjs`:** almacena contraseñas como hashes con sal y un factor de costo configurable. El proceso no permite recuperar la contraseña original a partir del hash.
+2. **Cifrado autenticado AES-256-GCM:** protege información personal identificable (PII), como correos electrónicos y direcciones. Utiliza un vector de inicialización (IV) aleatorio y una etiqueta de autenticación para detectar modificaciones.
+3. **Tokenización simulada de medios de pago:** sustituye el número de tarjeta (PAN) por un token y conserva una máscara para su identificación visual. La bóveda incluida en este proyecto es únicamente un simulador académico; no procesa pagos reales ni acredita cumplimiento de PCI DSS.
+4. **Verificación de integridad mediante HMAC-SHA256:** permite detectar modificaciones no autorizadas en los saldos de puntos de fidelización.
+5. **Configuración mediante variables de entorno:** obtiene las claves criptográficas y otros parámetros de configuración desde el entorno de ejecución, en lugar de definirlos directamente en el código fuente.
 
-1. **Hashing Irreversible con Salting (`bcryptjs`)**: Para contraseñas (`password_hash`). Imposibilita la recuperación del texto plano ante filtraciones de bases de datos.
-2. **Cifrado Simétrico Autenticado Reversible (`AES-256-GCM`)**: Para datos personales PII (`email`, `nombre`, `direccion_despacho`). Utiliza vectores de inicialización (IV) dinámicos únicos de 12 bytes y etiquetas de autenticación (auth tag) de 16 bytes para evitar adulteraciones en reposo.
-3. **Tokenización de Medios de Pago (Cumplimiento PCI-DSS)**: Aislamiento del PAN de tarjetas bancarias mediante una bóveda externa (Vault), almacenando en NortiShop únicamente el `token_pago` y una máscara segura `mascara_tarjeta` (`************4582`).
-4. **Control de Integridad con HMAC (`HMAC-SHA256`)**: Sellado criptográfico para saldos de puntos de fidelización (`saldo_puntos`), detectando cualquier manipulación o fraude.
-5. **Gestión Segura de Secretos**: Exclusión estricta de llaves en el código fuente, carga desde `.env` y control de versiones protegido mediante `.gitignore` y `.env.example`.
+> **Alcance:** este proyecto tiene fines educativos. Su implementación no constituye una certificación ni garantiza, por sí sola, el cumplimiento de leyes, normas o estándares de seguridad.
 
----
-
-## Estructura del Proyecto
+## 2. Estructura del proyecto
 
 ```text
 ITEM2/
-├── .env.example                # Plantilla de variables de entorno para el repositorio
-├── .env                        # Archivo local de configuración y llaves (ignorado en Git)
-├── .gitignore                  # Reglas de exclusión de Git para evitar fugas de secretos
-├── package.json                # Dependencias (bcryptjs, dotenv) y scripts
-├── README.md                   # Instrucciones y visión general
-├── INFORME_ITEM2.md            # Informe técnico detallado para la entrega académica
+├── .env.example                # Plantilla de configuración sin secretos de uso real
+├── .env                        # Configuración local; no debe incluirse en Git
+├── .gitignore                  # Exclusiones para archivos locales y secretos
+├── package.json                # Dependencias y comandos del proyecto
+├── README.md                   # Documentación del proyecto
 ├── src/
 │   ├── config/
-│   │   └── env.js              # Validador Fail-Fast y cargador inmutable de configuración
+│   │   └── env.js              # Carga y validación de la configuración
 │   ├── crypto/
-│   │   ├── hashing.js          # Implementación de bcrypt con salt y auditoría de rounds
-│   │   ├── cipher.js           # Implementación de AES-256-GCM con IV único y AuthTag
-│   │   ├── integrity.js        # Implementación de HMAC-SHA256 con timingSafeEqual
-│   │   └── tokenization.js     # Simulador de Vault PCI-DSS y tokenización de tarjetas
+│   │   ├── hashing.js          # Hashing de contraseñas con bcrypt
+│   │   ├── cipher.js           # Cifrado y descifrado AES-256-GCM
+│   │   ├── integrity.js        # Generación y verificación de HMAC-SHA256
+│   │   └── tokenization.js     # Simulador académico de tokenización
 │   ├── db/
-│   │   └── repository.js       # Base de datos simulada en memoria (Evidencia en reposo)
+│   │   └── repository.js       # Repositorio simulado en memoria
 │   ├── services/
-│   │   ├── userService.js      # Registro, login con bcrypt y perfil con descifrado PII
-│   │   ├── orderService.js     # Despacho logístico y cobro por token
-│   │   └── loyaltyService.js   # Gestión y sellado de NortiPuntos
-│   └── demo.js                 # Script principal ejecutable con demostración interactiva
+│   │   ├── userService.js      # Registro, autenticación y consulta de perfiles
+│   │   ├── orderService.js     # Flujo simulado de pedidos y cobros por token
+│   │   └── loyaltyService.js   # Gestión e integridad de puntos
+│   └── demo.js                 # Demostración del flujo principal
 └── test/
-    └── security.test.js        # Batería de pruebas automatizadas (node:test)
+    └── security.test.js        # Pruebas automatizadas de seguridad
 ```
 
----
+## 3. Requisitos
 
-## Requisitos e Instalación
+- **Node.js:** versión 18 o superior.
+- **npm:** versión 9 o superior.
 
-### Requisitos Previos
-- **Node.js**: v18.0.0 o superior (verificado en v22.x).
-- **npm**: v9.0.0 o superior.
+## 4. Instalación y configuración
 
-### Instalación de Dependencias
-
-Abra una terminal en la carpeta `ITEM2`:
+Desde una terminal, ingresa al directorio del proyecto e instala las dependencias:
 
 ```bash
 cd ITEM2
 npm install
 ```
 
----
+Crea una configuración local a partir de la plantilla:
 
-## Ejecución y Pruebas
+```bash
+cp .env.example .env
+```
 
-### 1. Demostración Interactiva en Consola (`demo.js`)
-Ejecuta el flujo completo paso a paso mostrando el almacenamiento en reposo, login, descifrado, compra y detección de ataques:
+Edita `.env` y define valores adecuados para el entorno local. La clave AES-256 debe corresponder a 32 bytes, normalmente representados por 64 caracteres hexadecimales. Para generar una clave aleatoria desde Node.js:
+
+```bash
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+```
+
+El archivo `.env` contiene valores de configuración sensibles: no debe subirse a Git ni compartirse. `.env.example` debe contener únicamente nombres de variables y valores de ejemplo no utilizables como secretos reales.
+
+## 5. Ejecución
+
+### Demostración
+
+Para ejecutar el flujo de demostración:
 
 ```bash
 npm start
 ```
-*(o directamente: `node src/demo.js`)*
 
-### 2. Ejecución de la Suite de Pruebas Automatizadas
-Ejecuta las pruebas unitarias nativas para verificar la robustez de los algoritmos:
+También puede ejecutarse directamente:
+
+```bash
+node src/demo.js
+```
+
+### Pruebas automatizadas
+
+Para ejecutar la suite de pruebas:
 
 ```bash
 npm test
 ```
 
----
+Las pruebas verifican el hashing de contraseñas, el cifrado y la detección de alteraciones, la tokenización simulada, la integridad de los puntos y el flujo de servicios.
 
-## Integrantes
-- Catalina Toledo
-- María Gerónimo
-- Pablo Lineros
+## 6. Consideraciones de seguridad que deben ser recalcadas pero que no se consideraron en este caso:
+- No se deben almacenar claves reales en el código fuente ni en archivos que se suban al repositorio, si no que deben estar en un archivo .env
+- Los valores de `.env.example` deben ser marcadores o datos ficticios, nunca credenciales activas.
+- Si una clave real se publica o se comparte accidentalmente, debe considerarse comprometida y reemplazarse inmediatamente!
