@@ -2,6 +2,8 @@ import crypto from 'node:crypto';
 import { DB } from '../db/repository.js';
 import { decryptField } from '../crypto/cipher.js';
 import { PaymentVault } from '../crypto/tokenization.js';
+import { encryptField } from '../crypto/cipher.js';
+import { assertPermission, ownerActor } from '../security/accessControl.js';
 
 /**
  * Servicio de Órdenes y Logística de Despacho
@@ -13,7 +15,8 @@ export class OrderService {
   /**
    * Procesa una compra para un usuario registrado.
    */
-  static processOrder(userId, items, totalAmount) {
+  static processOrder(userId, items, totalAmount, actor = ownerActor(userId)) {
+    assertPermission(actor, 'orders:create', userId);
     const user = DB.getUserById(userId);
     if (!user) {
       throw new Error(`Usuario ${userId} no encontrado.`);
@@ -33,9 +36,9 @@ export class OrderService {
       totalAmount,
       transaccionId: paymentResult.transactionId,
       codigoAutorizacion: paymentResult.authorizationCode,
-      mascaraTarjetaUsada: user.mascara_tarjeta,
+      tarjetaLast4: user.tarjeta_last4,
       estado: 'PAGADA_Y_PREPARANDO_DESPACHO',
-      direccionDespachoDescifradaLogistica: direccionDespachoPlana,
+      direccion_envio_cifrada: encryptField(direccionDespachoPlana),
       createdAt: new Date().toISOString()
     };
 

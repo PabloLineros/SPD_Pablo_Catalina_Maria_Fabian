@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node src/demo.js",
-    "test": "node --test"
+    "test": "node --import ./test/setup.js --test"
   },
   "keywords": [
     "cybersecurity",

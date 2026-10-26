@@ -4,6 +4,8 @@ import { hashPassword, verifyPassword } from '../crypto/hashing.js';
 import { encryptField, decryptField } from '../crypto/cipher.js';
 import { PaymentVault } from '../crypto/tokenization.js';
 import { LoyaltyService } from './loyaltyService.js';
+import { assertPermission, ownerActor, ROLES } from '../security/accessControl.js';
+import { CONFIG } from '../config/env.js';
 
 /**
  * Servicio de Gestión de Usuarios y Autenticación de NortiShop
@@ -16,7 +18,10 @@ export class UserService {
   /**
    * Registra un nuevo cliente protegiendo cada atributo según su nivel de sensibilidad.
    */
-  static async registerUser({ nombre, email, password, direccionDespacho, tarjeta }) {
+  static async registerUser({ nombre, email, password, direccionDespacho, telefono, tarjeta }) {
+    if (!nombre || !email || !password || !direccionDespacho) {
+      throw new Error('Registro incompleto: nombre, email, contraseña y dirección son obligatorios.');
+    }
     const userId = `usr_${crypto.randomUUID()}`;
 
     // 1. Hashing Irreversible de la Contraseña (bcrypt con factor de costo 12)
@@ -37,11 +42,14 @@ export class UserService {
       id: userId,
       nombre_cifrado: nombreCifrado,
       email_cifrado: emailCifrado,
+      email_hmac: crypto.createHmac('sha256', CONFIG.HMAC_SECRET).update(email.toLowerCase()).digest('hex'),
+      telefono_cifrado: telefono ? encryptField(telefono) : null,
       direccion_despacho_cifrada: direccionCifrada,
       password_hash: passwordHash,
       token_pago: token_pago,
-      mascara_tarjeta: mascara_tarjeta,
+      tarjeta_last4: mascara_tarjeta.slice(-4),
       tarjeta_marca: brand,
+      role: ROLES.CUSTOMER,
       createdAt: new Date().toISOString()
     };
 
@@ -51,7 +59,11 @@ export class UserService {
     // 6. Asignación inicial de saldo de NortiPuntos con firma HMAC
     LoyaltyService.initializeAccount(userId, 500); // 500 puntos de bienvenida
 
-    return userRecord;
+    return {
+      id: userRecord.id,
+      role: userRecord.role,
+      createdAt: userRecord.createdAt
+    };
   }
 
   /**
@@ -95,7 +107,11 @@ export class UserService {
   /**
    * Recupera el perfil del usuario descifrando la PII bajo demanda para el titular autorizado.
    */
-  static getUserProfile(userId) {
+  static getUserProfile(userId, actor = ownerActor(userId)) {
+    const permission = actor.role === ROLES.CUSTOMER && actor.userId === userId
+      ? 'users:read:own'
+      : 'users:read:any';
+    assertPermission(actor, permission, userId);
     const user = DB.getUserById(userId);
     if (!user) {
       throw new Error(`Usuario ${userId} no encontrado.`);
@@ -112,9 +128,9 @@ export class UserService {
       email,
       direccionDespacho,
       metodoPago: {
-        mascara: user.mascara_tarjeta,
+        last4: user.tarjeta_last4,
         marca: user.tarjeta_marca,
-        token: user.token_pago
+        token: actor.role === ROLES.ADMIN ? user.token_pago : '[RESTRINGIDO]'
       }
     };
   }

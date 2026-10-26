@@ -6,6 +6,8 @@ import { generateHMAC, verifyHMAC } from '../src/crypto/integrity.js';
 import { PaymentVault } from '../src/crypto/tokenization.js';
 import { UserService } from '../src/services/userService.js';
 import { LoyaltyService } from '../src/services/loyaltyService.js';
+import { OrderService } from '../src/services/orderService.js';
+import { ROLES } from '../src/security/accessControl.js';
 import { DB } from '../src/db/repository.js';
 
 test('1. Hashing de Contraseñas (bcrypt) - Irreversibilidad y Salting', async (t) => {
@@ -98,11 +100,12 @@ test('5. Integración de Servicios NortiShop - Flujo Completo y Persistencia Cif
     }
   });
 
-  // Inspección de persistencia en reposo: NINGÚN dato sensible está en texto plano
-  assert.notEqual(user.password_hash, 'PasswordMaria#2026');
-  assert.notEqual(user.email_cifrado, 'maria.geronimo@nortishop.cl');
-  assert.notEqual(user.direccion_despacho_cifrada, 'Calle Los Flamencos 123, Calama');
-  assert.equal(user.mascara_tarjeta, '************5678');
+  const storedUser = DB.getUserById(user.id);
+  assert.notEqual(storedUser.password_hash, 'PasswordMaria#2026');
+  assert.notEqual(storedUser.email_cifrado, 'maria.geronimo@nortishop.cl');
+  assert.notEqual(storedUser.direccion_despacho_cifrada, 'Calle Los Flamencos 123, Calama');
+  assert.equal(storedUser.tarjeta_last4, '5678');
+  assert.equal(storedUser.mascara_tarjeta, undefined);
 
   // Recuperación bajo demanda autorizada
   const profile = UserService.getUserProfile(user.id);
@@ -114,4 +117,30 @@ test('5. Integración de Servicios NortiShop - Flujo Completo y Persistencia Cif
   assert.throws(() => {
     LoyaltyService.redeemPoints(user.id, 100);
   }, /Operación Bloqueada por Seguridad/);
+});
+
+test('6. RBAC y minimización - acceso propio, acceso administrativo y dirección cifrada', async () => {
+  const owner = await UserService.registerUser({
+    nombre: 'Cliente RBAC',
+    email: 'rbac@nortishop.cl',
+    password: 'PasswordRBAC#2026',
+    direccionDespacho: 'Dirección privada 123',
+    tarjeta: { pan: '4532117890124582', cardHolder: 'CLIENTE RBAC', expirationDate: '12/28', cvv: '892' }
+  });
+  const other = await UserService.registerUser({
+    nombre: 'Otro Cliente',
+    email: 'otro@nortishop.cl',
+    password: 'PasswordOtro#2026',
+    direccionDespacho: 'Otra dirección 456',
+    tarjeta: { pan: '5412889012345678', cardHolder: 'OTRO CLIENTE', expirationDate: '08/27', cvv: '123' }
+  });
+
+  assert.throws(() => UserService.getUserProfile(other.id, { userId: owner.id, role: ROLES.CUSTOMER }), /Acceso denegado/);
+  const adminProfile = UserService.getUserProfile(other.id, { userId: 'admin-1', role: ROLES.ADMIN });
+  assert.equal(adminProfile.email, 'otro@nortishop.cl');
+
+  const order = OrderService.processOrder(owner.id, ['producto'], 19990);
+  assert.equal(order.tarjetaLast4, '4582');
+  assert.ok(order.direccion_envio_cifrada.includes(':'));
+  assert.equal(order.direccionDespachoDescifradaLogistica, undefined);
 });
