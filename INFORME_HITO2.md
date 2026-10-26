@@ -59,6 +59,127 @@ Reconstruimos el esquema original (`00_esquema_original.sql`) solo a partir de t
 - Tabla `personal` separada de `users`.
 - Tablas `sesiones` y `audit_log` como soporte del control de acceso.
 
+**Diagrama 1a. Esquema original (tablas principales y riesgos)**
+
+```mermaid
+erDiagram
+  users ||--o{ orders : realiza
+  users ||--o| loyalty_accounts : tiene
+  users ||--o{ resenas : escribe
+  users ||--o{ facturacion : "pide siempre"
+  users }o--|| vault : token_pago
+  users {
+    text id PK "usr_uuid"
+    text nombre_cifrado "AES sin contexto"
+    text email_cifrado "login descifra todos"
+    text telefono "obligatorio"
+    text direccion_despacho_cifrada
+    text region "redundante"
+    text token_pago "siempre guardado"
+    text mascara_tarjeta "revela largo del PAN"
+  }
+  orders {
+    text id PK "ord + 8 hex"
+    int total_amount "lo envía el cliente"
+    text mascara_tarjeta_usada
+    text direccion_descifrada_logistica "TEXTO PLANO"
+  }
+  vault {
+    text pan_hash "SHA-256 sin sal"
+    text card_holder
+    text expiration_date
+  }
+  loyalty_accounts {
+    int saldo_puntos
+    text hmac_firma "sin versión"
+  }
+  resenas {
+    text user_id FK "identidad directa"
+    text comentario_resena
+  }
+  facturacion {
+    text rut_facturacion
+    text direccion_facturacion
+  }
+  orders_invitado {
+    text nombre_email_telefono "sin plazo"
+    json datos_checkout_temporal "sin finalidad"
+  }
+  suscripciones_marketing {
+    text email_suscripcion
+    text nombre_contacto "innecesario"
+  }
+```
+
+**Diagrama 1b. Esquema rediseñado**
+
+```mermaid
+erDiagram
+  users ||--o{ orders : realiza
+  users ||--o| loyalty_accounts : tiene
+  loyalty_accounts ||--o{ historial_puntos : respalda
+  orders |o--o| facturacion : "solo FACTURA"
+  orders ||--|| envios : genera
+  orders_invitado ||--|| envios : genera
+  users {
+    uuid id PK
+    cifrado nombre_cifrado "AES-GCM + AAD"
+    cifrado email_cifrado
+    hmac email_hmac UK "índice ciego"
+    cifrado telefono_cifrado "opcional"
+    cifrado direccion_despacho_cifrada
+    text comuna
+    bool guardar_medio_pago "falso por defecto"
+    text tarjeta_last4 "solo 4 dígitos"
+  }
+  orders {
+    uuid id PK
+    int total_clp "calculado en servidor"
+    cifrado direccion_envio_cifrada
+    text comuna_envio
+    text tipo_documento "BOLETA o FACTURA"
+  }
+  facturacion {
+    cifrado rut_facturacion_cifrado
+    bool bloqueado "ante supresión"
+  }
+  loyalty_accounts {
+    int saldo_puntos
+    int version "= nº movimientos"
+    hmac hmac_firma "user:version:saldo"
+  }
+  historial_puntos {
+    int delta
+    text motivo
+  }
+  envios {
+    uuid ref_envio UK "lo único del courier"
+  }
+  orders_invitado {
+    cifrado contacto "NULL a los 90 días"
+    date eliminar_contacto_desde
+  }
+  resenas {
+    hmac autor_pseudo "HMAC K_resenas"
+    text alias_publico
+  }
+  suscripciones_marketing {
+    cifrado email_cifrado
+    date consentimiento_otorgado_el
+    date revocado_el
+  }
+  personal {
+    uuid id PK
+    text rol "7 roles internos"
+    bool activo
+  }
+  audit_log {
+    text actor_rol
+    text accion
+    text resultado "PERMITIDO o DENEGADO"
+  }
+```
+
 ### 2.3 Tabla de decisiones
 
 | Tabla y campo | Decisión | Justificación |
@@ -130,6 +251,41 @@ Reconstruimos el esquema original (`00_esquema_original.sql`) solo a partir de t
 | Invitados (`orders_invitado`) | Anonimización | `anonimizarInvitadosVencidos()`: a los 90 días de entregado o cancelado, pone en `NULL` nombre, email, teléfono y dirección | El contacto de personas sin cuenta | Al vencer la finalidad no queda motivo para conservarlo. Se mantienen total y estado por la obligación contable. |
 | Supresión de cuenta | Anonimización por desvinculación | Se borran el usuario y sus filas en `pseudo.pseudonimos`. Las reseñas y los datos analíticos quedan sin forma de atribuirse. | Al titular que ejerce su derecho de supresión | No se pierden las estadísticas, pero dejan de estar vinculadas a la persona. |
 | Desarrollo y pruebas | Datos sintéticos / anonimización | `src/dev/escenario.js` (dominio `.test`) y `generarCopiaDesarrollo()`, que regenera ids y reemplaza la PII por datos ficticios, sin hashes, tokens ni criptogramas | Datos reales en ambientes menos protegidos | Los ambientes de desarrollo tienen más accesos y menos controles. |
+
+**Diagrama 2. Flujo de seudonimización y anonimización.** Las flechas punteadas llegan a la tabla de equivalencias, que solo consulta el oficial de privacidad.
+
+```mermaid
+flowchart LR
+  subgraph OP["Base operativa · rol svc_app"]
+    O["orders + order_items"]
+    H["historial_puntos"]
+    R["resenas<br/>autor_pseudo + alias"]
+    S["suscripciones_marketing<br/>consentimiento vigente"]
+    E["envios<br/>ref_envio aleatoria"]
+    I["orders_invitado<br/>contacto cifrado"]
+  end
+  subgraph AN["Esquema analitica · roles svc_etl y rol_analista"]
+    AC["analitica.compras<br/>cliente_pseudo · mes · rango · categoría · comuna"]
+    AM["analitica.movimientos_puntos"]
+    V["v_ventas_por_comuna<br/>solo grupos con 5 o más clientes"]
+  end
+  subgraph PS["Esquema pseudo · solo svc_privacidad"]
+    P[("pseudo.pseudonimos<br/>seudónimo ↔ user_id")]
+  end
+  O -- "ETL: HMAC K_analitica + generalización" --> AC
+  H -- "ETL" --> AM
+  AC --> ANA["Analista<br/>seudonimizado"]
+  AC --> V
+  V --> REP["Administración y marketing<br/>reporte anonimizado"]
+  R -- "v_resenas_publicas: solo alias" --> PUB["Público"]
+  S -- "v_export_marketing: HMAC K_marketing" --> MK["Plataforma de correo"]
+  E -- "etiqueta: nombre + dirección" --> CO["Courier"]
+  I -- "job diario: 90 días tras la entrega" --> AX["Contacto = NULL<br/>anonimizado"]
+  R -.-> P
+  AC -.-> P
+  S -.-> P
+  P -. "revertir con motivo + auditoría" .-> DPO["Oficial de privacidad"]
+```
 
 ### 3.3 Ejemplos concretos (salida de `npm start`)
 
@@ -265,6 +421,38 @@ La misma matriz, en el formato del enunciado:
 | `rol_publico` | Solo `v_resenas_publicas`. |
 
 Como propuesta de defensa en profundidad para producción se incluye Row-Level Security sobre `users` y `orders`.
+
+**Diagrama 3. Autenticación y autorización de una solicitud**
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor U as Usuario con rol
+  participant API as api.js
+  participant AUTH as authService
+  participant RBAC as autorizar()
+  participant SVC as Servicio
+  participant BD as BD con rol y GRANTS
+  participant AUD as audit_log
+  U->>API: solicitud + token de sesión
+  API->>AUTH: resolverSesion(token)
+  AUTH->>BD: busca SHA-256 del token y relee el rol actual
+  alt token inválido, expirado o cuenta desactivada
+    AUTH-->>U: 401 NO_AUTENTICADO
+  end
+  API->>SVC: operación(sesión, datos)
+  SVC->>RBAC: autorizar(sesión, permiso, propietario)
+  alt rol sin permiso o recurso de otro usuario
+    RBAC->>AUD: DENEGADO + motivo
+    RBAC-->>U: 403 ACCESO_DENEGADO
+  else permitido
+    SVC->>SVC: soloCampos(): rechaza datos no necesarios
+    SVC->>BD: consulta con su rol de BD (svc_app, rol_analista...)
+    BD-->>SVC: filas (valida esquema, tipos protegidos y GRANTS)
+    SVC->>AUD: PERMITIDO en acciones sensibles
+    SVC-->>U: 200 con solo los datos necesarios
+  end
+```
 
 ---
 
