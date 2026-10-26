@@ -1,0 +1,232 @@
+NortiShop — Minimización, Seudonimización, RBAC y Criptografía (datos sintéticos)
+Integrantes: Catalina Toledo | María Gerónimo | Pablo Lineros | Fabián Salinas
+
+════════════════════════════════════════════════════════════════════════════════
+ 0. Gestión de llaves
+════════════════════════════════════════════════════════════════════════════════
+Una llave por finalidad, cargada desde el entorno y retirada de process.env:
+  - cifrado     256 bits  [valor nunca expuesto]
+  - integridad  256 bits  [valor nunca expuesto]
+  - indice      256 bits  [valor nunca expuesto]
+  - resenas     256 bits  [valor nunca expuesto]
+  - analitica   256 bits  [valor nunca expuesto]
+  - marketing   256 bits  [valor nunca expuesto]
+  - process.env.KEY_CIFRADO_AES256 después de cargar: undefined
+
+════════════════════════════════════════════════════════════════════════════════
+ Parte 1. Minimización de datos
+════════════════════════════════════════════════════════════════════════════════
+
+▶ El servidor rechaza datos que no son necesarios
+  ⛔ CAMPO_NO_PERMITIDO       Registro con fecha_nacimiento — Campos no permitidos por la política de minimización: fecha_nacimiento.
+  ⛔ CAMPO_NO_PERMITIDO       Registro con sexo y foto — Campos no permitidos por la política de minimización: sexo, foto.
+  ⛔ CAMPO_NO_PERMITIDO       Tarjeta sin marcar "guardar medio de pago" — Campos no permitidos por la política de minimización: tarjeta (solo se acepta si guardarMedioPago es verdadero).
+  ⛔ CAMPO_NO_PERMITIDO       Boleta con RUT de facturación — Campos no permitidos por la política de minimización: facturacion (la boleta no requiere RUT ni razón social).
+  ✔ PERMITIDO  Registro mínimo (sin teléfono ni tarjeta)
+
+▶ Pedido válido: monto calculado en el servidor, solo last4 de la tarjeta
+{
+  "id": "2239214b-80bf-46ed-bcc5-07f3af95d4f2",
+  "total_clp": 49980,
+  "estado": "PAGADO",
+  "tipoDocumento": "BOLETA",
+  "tarjeta_last4": "1111",
+  "puntosGanados": 499
+}
+
+▶ La capa de datos también lo impide (lista blanca de columnas y tipos protegidos)
+  ⛔ BD_COLUMNA_NO_PERMITIDA Columna(s) no permitida(s) en users: fecha_nacimiento
+
+════════════════════════════════════════════════════════════════════════════════
+ Parte 1/4. Datos en reposo (lo que vería un atacante con acceso a la BD)
+════════════════════════════════════════════════════════════════════════════════
+{
+  "tabla": "users",
+  "id": "c08d0ce6-040d-4899-a2ba-bf16692fbe91",
+  "nombre_cifrado": "a6789b172002626dad323dd6:8a977aff302df5c185405cc2e8cf4194:aebc09f6b4fbf5080241c5dc6ab0",
+  "email_cifrado": "503e7458ddd541eea32126e4:b63a29b744d9ed72b37df2a421a89127:81ec19007ad166e40de0b013d642b69d3d227d605a4dc9",
+  "email_hmac": "e5a5e913d026d8ab2149e4b86f3b269db86957ff374553adf1235628c7271226",
+  "telefono_cifrado": "e53fc7163ce1b81a2ac564b8:e79cb39fb069966780dd24aeb41ece60:73811ecdb786536f18210e7e",
+  "direccion_despacho_cifrada": "7062514a614e1d3d921b9596:d8c318e1d8aa46c30278e40dae0d2fed:24722ddb17d12b1a5aefa82be38bbde7aede9f522f8deddb025393",
+  "comuna": "Antofagasta",
+  "password_hash": "$2a$12$t3P8a1KXa..eC2mr4DgKxeDhl1eCEodm4wAzrOYFOxupkDETb2SMq",
+  "guardar_medio_pago": true,
+  "token_pago": "tok_norti_vault_2931d59a73a7c6c3bb90a6a9d87ba5a7",
+  "tarjeta_last4": "1111",
+  "tarjeta_marca": "VISA",
+  "created_at": "2026-10-26T00:01:56.421Z"
+}
+{
+  "tabla": "orders",
+  "id": "2239214b-80bf-46ed-bcc5-07f3af95d4f2",
+  "user_id": "c08d0ce6-040d-4899-a2ba-bf16692fbe91",
+  "total_clp": 49980,
+  "transaccion_id": "tx_auth_11200affcd0fd395",
+  "codigo_autorizacion": "545818",
+  "tarjeta_last4": "1111",
+  "direccion_envio_cifrada": "eedf4d654bbe956a2c726872:1f8cbf640183111e530850552d55b581:c3fc4b9a151c5fbd7868bbf19af9fdb9407c2e0135fa090d0c5452",
+  "comuna_envio": "Antofagasta",
+  "tipo_documento": "BOLETA",
+  "facturacion_id": null,
+  "estado": "PAGADO",
+  "created_at": "2026-10-26T00:01:57.448Z"
+}
+  password_hash: bcrypt (2a), costo 12 (4096 iteraciones)
+
+▶ AAD: copiar el email cifrado de Ana al registro de Bruno no sirve
+  ⛔ ERROR_INTERNO            Bruno lee su perfil con el criptograma ajeno (GCM rechaza el AAD; el detalle solo va al log) — Ocurrió un error interno. Intente nuevamente.
+
+════════════════════════════════════════════════════════════════════════════════
+ Parte 2. Seudonimización y anonimización
+════════════════════════════════════════════════════════════════════════════════
+
+▶ Reseña: en la tabla se guarda HMAC(K_resenas, user_id); el público solo ve el alias
+  Fila almacenada:
+{
+  "id": "ce19ac45-0086-4396-9bc9-45a1d0615d9e",
+  "autor_pseudo": "74c82c8d24f620166199e0f0fe788ddf6b450df2740e033b67ffc0621e2d2955",
+  "alias_publico": "ana_p",
+  "producto_id": "5c51ec04-6e39-4096-b974-0d384a585e36",
+  "calificacion": 5,
+  "comentario": "&#60;b&#62;Muy bueno&#60;&#47;b&#62;",
+  "created_at": "2026-10-26T00:01:57.451Z"
+}
+  Vista pública v_resenas_publicas:
+[
+  {
+    "producto_id": "5c51ec04-6e39-4096-b974-0d384a585e36",
+    "alias_publico": "ana_p",
+    "calificacion": 5,
+    "comentario": "&#60;b&#62;Muy bueno&#60;&#47;b&#62;",
+    "fecha": "2026-10-26"
+  }
+]
+
+▶ Analítica: ETL seudonimiza (HMAC con K_analitica) y generaliza (mes, rango, categoría, comuna)
+{
+  "compras": 7,
+  "movimientos": 15
+}
+  Ejemplo de fila en analitica.compras (lo que ve el ANALISTA):
+{
+  "id": "74671799-1b69-4dbc-a324-746437d2f7f5",
+  "cliente_pseudo": "8a6bb563e5aeb2c7cc06d259f6c11182ae54ddbcfb5c22b4a0ba6a1ae9b07c5b",
+  "mes_compra": "2026-10-01",
+  "rango_monto": "20-50k",
+  "categoria_producto": "VESTUARIO",
+  "comuna": "Antofagasta"
+}
+
+▶ Reporte anonimizado (k = 5): el grupo de Calama (1 cliente) se suprime
+┌─────────┬───────────────┬──────────────┬────────────────────┬──────────┬─────────┐
+│ (index) │ comuna        │ mes_compra   │ categoria_producto │ clientes │ compras │
+├─────────┼───────────────┼──────────────┼────────────────────┼──────────┼─────────┤
+│ 0       │ 'Antofagasta' │ '2026-10-01' │ 'HOGAR'            │ 5        │ 5       │
+└─────────┴───────────────┴──────────────┴────────────────────┴──────────┴─────────┘
+
+▶ Invitado: seguimiento por token aleatorio; contacto anonimizado al vencer el plazo
+{
+  "estado": "PAGADO",
+  "total_clp": 24990,
+  "comuna_envio": "Arica",
+  "fecha": "2026-10-26"
+}
+  Job hoy:          {"anonimizados":0}
+  Job en 91 días:   {"anonimizados":1}
+{
+  "nombre": null,
+  "email": null,
+  "direccion": null,
+  "total_clp": 24990,
+  "estado": "ENTREGADO"
+}
+
+▶ Marketing: solo consentimientos vigentes, identificados por seudónimo de marketing
+[
+  {
+    "suscriptor_pseudo": "d650a715ac9ca5b2d2b5e00c2d7f9ec18697f651857ae2a3d0fe9ad1c4770aab",
+    "email": "ana.prueba@ejemplo.test",
+    "token_desuscripcion": "8c4bc266-9554-481a-ba06-fba07eb62485"
+  }
+]
+
+▶ Reidentificación: solo OFICIAL_PRIVACIDAD con motivo documentado
+  ⛔ ACCESO_DENEGADO          ADMINISTRADOR intenta revertir seudónimo — No tiene permisos para realizar esta operación.
+  ✔ PERMITIDO  OFICIAL_PRIVACIDAD revierte seudónimo (auditado)
+
+════════════════════════════════════════════════════════════════════════════════
+ Parte 3/4. RBAC: accesos permitidos y denegados en el servidor
+════════════════════════════════════════════════════════════════════════════════
+  ⛔ ACCESO_DENEGADO          CLIENTE (Bruno) lee el perfil de Ana — No tiene permisos para realizar esta operación.
+  ✔ PERMITIDO  CLIENTE (Ana) lee su propio perfil
+  ⛔ ACCESO_DENEGADO          CLIENTE intenta listar todos los pedidos — No tiene permisos para realizar esta operación.
+  ⛔ ACCESO_DENEGADO          ANALISTA intenta buscar un cliente por email — No tiene permisos para realizar esta operación.
+  ✔ PERMITIDO  SOPORTE busca cliente (vista enmascarada)
+{
+  "id": "c08d0ce6-040d-4899-a2ba-bf16692fbe91",
+  "nombre": "A. P. U.",
+  "email": "a***@e***.test",
+  "telefono": "*****2222",
+  "comuna": "Antofagasta",
+  "pedidos": 1
+}
+  ⛔ DATO_INVALIDO            SOPORTE revela PII sin ticket válido — ticket debe tener formato TCK-0000.
+  ✔ PERMITIDO  SOPORTE revela PII con ticket y motivo
+  ⛔ ACCESO_DENEGADO          ADMINISTRADOR intenta revelar PII — No tiene permisos para realizar esta operación.
+  ⛔ ACCESO_DENEGADO          ADMINISTRADOR se auto-asigna OFICIAL_PRIVACIDAD — No tiene permisos para realizar esta operación.
+  ✔ PERMITIDO  LOGISTICA genera etiqueta de despacho
+{
+  "ref_envio": "c5d7165e-c75b-499a-a0e7-261dbbcba2f8",
+  "destinatario": "Ana Prueba Uno",
+  "direccion": "Calle Ficticia 123, Depto 4",
+  "comuna": "Antofagasta"
+}
+  ⛔ ACCESO_DENEGADO          LOGISTICA intenta exportar suscriptores — No tiene permisos para realizar esta operación.
+  ⛔ ACCESO_DENEGADO          MARKETING intenta leer analítica fila a fila — No tiene permisos para realizar esta operación.
+  ⛔ ACCESO_DENEGADO          CATALOGO intenta leer auditoría — No tiene permisos para realizar esta operación.
+  ⛔ NO_AUTENTICADO           Sin sesión: consultar perfil — Sesión inválida o expirada.
+
+▶ Revocación inmediata: MARKETING pasa a ANALISTA con la sesión abierta
+  ⛔ ACCESO_DENEGADO          Misma sesión intenta exportar suscriptores — No tiene permisos para realizar esta operación.
+
+▶ Login sin enumeración de usuarios
+  ⛔ CREDENCIALES_INVALIDAS   Email inexistente — Credenciales inválidas.
+  ⛔ CREDENCIALES_INVALIDAS   Email existente, clave incorrecta — Credenciales inválidas.
+
+════════════════════════════════════════════════════════════════════════════════
+ Parte 4. Integridad de NortiPuntos (HMAC + versión + historial)
+════════════════════════════════════════════════════════════════════════════════
+{
+  "puntosCanjeados": 100,
+  "nuevoSaldo": 489
+}
+  ⛔ INTEGRIDAD_COMPROMETIDA  Atacante restaura fila antigua con firma válida y consulta saldo — Operación bloqueada: se detectó una inconsistencia de integridad.
+  ⛔ INTEGRIDAD_COMPROMETIDA  Atacante fija saldo en 999.999 e intenta canjear — Operación bloqueada: se detectó una inconsistencia de integridad.
+
+════════════════════════════════════════════════════════════════════════════════
+ Parte 4. Registros de actividad y auditoría (sin datos personales)
+════════════════════════════════════════════════════════════════════════════════
+
+▶ Últimos registros de actividad (redactados automáticamente)
+  {"ts":"2026-10-26T00:01:59.991Z","nivel":"WARN","evento":"acceso_denegado","datos":{"rol":"ANALISTA","permiso":"marketing:exportar","motivo":"ROL_SIN_PERMISO"}}
+  {"ts":"2026-10-26T00:02:00.511Z","nivel":"WARN","evento":"login_fallido","datos":{"cuenta":"23dec91b4273","fallos":1}}
+  {"ts":"2026-10-26T00:02:00.764Z","nivel":"WARN","evento":"login_fallido","datos":{"cuenta":"e5a5e913d026","fallos":1}}
+  {"ts":"2026-10-26T00:02:00.766Z","nivel":"ERROR","evento":"integridad_puntos_comprometida","datos":{"usuarioId":"6d18d65e-972e-462a-bfb4-0509a03da967"}}
+  {"ts":"2026-10-26T00:02:00.766Z","nivel":"ERROR","evento":"integridad_puntos_comprometida","datos":{"usuarioId":"6d18d65e-972e-462a-bfb4-0509a03da967"}}
+
+▶ Últimas entradas de auditoría
+┌─────────┬─────────────────┬────────────────────────┬─────────────────────────────────────────────────┬─────────────┬────────────────────────┐
+│ (index) │ actor_rol       │ accion                 │ recurso                                         │ resultado   │ motivo                 │
+├─────────┼─────────────────┼────────────────────────┼─────────────────────────────────────────────────┼─────────────┼────────────────────────┤
+│ 0       │ 'ADMINISTRADOR' │ 'clientes:pii:revelar' │ 'users:c08d0ce6-040d-4899-a2ba-bf16692fbe91'    │ 'DENEGADO'  │ 'ROL_SIN_PERMISO'      │
+│ 1       │ 'ADMINISTRADOR' │ 'roles:gestionar'      │ 'personal:ae14e6a9-bf9e-498d-873d-36797c1475d5' │ 'DENEGADO'  │ 'AUTO_MODIFICACION'    │
+│ 2       │ 'LOGISTICA'     │ 'envios:etiqueta'      │ 'envio:c5d7165e-c75b-499a-a0e7-261dbbcba2f8'    │ 'PERMITIDO' │ null                   │
+│ 3       │ 'LOGISTICA'     │ 'marketing:exportar'   │ 'v_export_marketing'                            │ 'DENEGADO'  │ 'ROL_SIN_PERMISO'      │
+│ 4       │ 'MARKETING'     │ 'analitica:leer'       │ 'analitica.compras'                             │ 'DENEGADO'  │ 'ROL_SIN_PERMISO'      │
+│ 5       │ 'CATALOGO'      │ 'auditoria:leer'       │ 'audit_log'                                     │ 'DENEGADO'  │ 'ROL_SIN_PERMISO'      │
+│ 6       │ 'ADMINISTRADOR' │ 'roles:gestionar'      │ 'personal:ec894102-7056-4a0e-b886-44d4655b2643' │ 'PERMITIDO' │ 'asignar rol=ANALISTA' │
+│ 7       │ 'ANALISTA'      │ 'marketing:exportar'   │ 'v_export_marketing'                            │ 'DENEGADO'  │ 'ROL_SIN_PERMISO'      │
+└─────────┴─────────────────┴────────────────────────┴─────────────────────────────────────────────────┴─────────────┴────────────────────────┘
+
+Demostración finalizada. Ejecute npm test para la batería completa de pruebas.
+

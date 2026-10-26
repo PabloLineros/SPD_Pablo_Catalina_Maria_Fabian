@@ -1,121 +1,145 @@
 import crypto from 'node:crypto';
-import { DB } from '../db/repository.js';
-import { hashPassword, verifyPassword } from '../crypto/hashing.js';
-import { encryptField, decryptField } from '../crypto/cipher.js';
+import { DB, ROLES_BD } from '../db/repository.js';
+import { hashPassword, validarPoliticaPassword } from '../crypto/hashing.js';
+import { encryptField, decryptField, contexto } from '../crypto/cipher.js';
+import { indiceCiegoEmail } from '../crypto/pseudonymization.js';
 import { PaymentVault } from '../crypto/tokenization.js';
+import { autorizar, PERMISOS } from '../security/rbac.js';
+import { errores } from '../security/errors.js';
+import { soloCampos, validar } from '../security/validation.js';
+import { logger } from '../security/logger.js';
 import { LoyaltyService } from './loyaltyService.js';
+import { otorgarConsentimiento } from './marketingService.js';
+import { suprimirCliente } from './privacyService.js';
 
 /**
- * Servicio de Gestión de Usuarios y Autenticación de NortiShop
- * Aplica los principios de seguridad defensiva y ciclo de vida del dato:
- * - Contraseñas: Hashing irreversible (bcrypt).
- * - PII: Cifrado reversible simétrico (AES-256-GCM).
- * - Medios de Pago: Tokenización externa PCI-DSS.
+ * Servicio de Clientes.
+ * Minimización aplicada en el registro:
+ *  - Obligatorios: nombre, email, password, direccionDespacho, comuna.
+ *  - Opcionales: telefono, guardarMedioPago (+ tarjeta), aceptaMarketing.
+ *  - Cualquier otro campo (fecha de nacimiento, sexo, RUT, foto...) se RECHAZA.
+ *  - La tarjeta solo se acepta si el cliente marca guardarMedioPago (privacidad por defecto).
  */
+
+const bd = DB.conectar(ROLES_BD.SVC_APP);
+const ctxUser = (campo, id) => contexto('users', campo, id);
+
+const POLITICA_REGISTRO = {
+  obligatorios: ['nombre', 'email', 'password', 'direccionDespacho', 'comuna'],
+  opcionales: ['telefono', 'guardarMedioPago', 'tarjeta', 'aceptaMarketing']
+};
+
+const POLITICA_EDICION = {
+  opcionales: ['telefono', 'direccionDespacho', 'comuna', 'guardarMedioPago']
+};
+
 export class UserService {
-  /**
-   * Registra un nuevo cliente protegiendo cada atributo según su nivel de sensibilidad.
-   */
-  static async registerUser({ nombre, email, password, direccionDespacho, tarjeta }) {
-    const userId = `usr_${crypto.randomUUID()}`;
+  static async registrarCliente(datos) {
+    soloCampos(datos, POLITICA_REGISTRO);
 
-    // 1. Hashing Irreversible de la Contraseña (bcrypt con factor de costo 12)
-    const passwordHash = await hashPassword(password);
+    const nombre = validar.nombre(datos.nombre);
+    const email = validar.email(datos.email);
+    const direccion = validar.direccion(datos.direccionDespacho);
+    const comuna = validar.comuna(datos.comuna);
+    const telefono = datos.telefono ? validar.telefono(datos.telefono) : null;
+    const problemaPassword = validarPoliticaPassword(datos.password);
+    if (problemaPassword) throw errores.datoInvalido(problemaPassword);
 
-    // 2. Cifrado Simétrico Reversible en Reposo de Datos Personales (AES-256-GCM)
-    // Cada campo obtiene su propio IV criptográfico aleatorio de 12 bytes
-    const nombreCifrado = encryptField(nombre);
-    const emailCifrado = encryptField(email);
-    const direccionCifrada = encryptField(direccionDespacho);
+    const guardarMedioPago = datos.guardarMedioPago === true;
+    if (datos.tarjeta && !guardarMedioPago) {
+      throw errores.campoNoPermitido(['tarjeta (solo se acepta si guardarMedioPago es verdadero)']);
+    }
+    if (guardarMedioPago && !datos.tarjeta) {
+      throw errores.datoInvalido('Para guardar un medio de pago debe ingresar la tarjeta.');
+    }
 
-    // 3. Tokenización del Medio de Pago (Delegación a Vault externo PCI-DSS)
-    // El PAN nunca toca la persistencia de NortiShop
-    const { token_pago, mascara_tarjeta, brand } = PaymentVault.tokenizeCard(tarjeta);
+    const emailHmac = indiceCiegoEmail(email);
+    if (bd.buscarUno('users', u => u.email_hmac === emailHmac)) {
+      throw errores.conflicto('No fue posible completar el registro con los datos entregados.');
+    }
 
-    // 4. Construcción del registro persistente
-    const userRecord = {
-      id: userId,
-      nombre_cifrado: nombreCifrado,
-      email_cifrado: emailCifrado,
-      direccion_despacho_cifrada: direccionCifrada,
-      password_hash: passwordHash,
-      token_pago: token_pago,
-      mascara_tarjeta: mascara_tarjeta,
-      tarjeta_marca: brand,
-      createdAt: new Date().toISOString()
-    };
-
-    // 5. Guardado en la base de datos
-    DB.saveUser(userRecord);
-
-    // 6. Asignación inicial de saldo de NortiPuntos con firma HMAC
-    LoyaltyService.initializeAccount(userId, 500); // 500 puntos de bienvenida
-
-    return userRecord;
-  }
-
-  /**
-   * Autenticación segura de usuario (Login).
-   * Se valida la contraseña mediante 'bcrypt.compare' sin descifrar nada.
-   * Para localizar al usuario, se busca descifrando de forma segura los emails en memoria
-   * o utilizando el identificador de usuario.
-   */
-  static async authenticateUser(candidateEmail, candidatePassword) {
-    // Localizar usuario descifrando de forma segura bajo demanda
-    let targetUser = null;
-    for (const user of DB.users.values()) {
+    let pago = { token_pago: null, last4: null, brand: null };
+    if (guardarMedioPago) {
       try {
-        const decryptedEmail = decryptField(user.email_cifrado);
-        if (decryptedEmail.toLowerCase() === candidateEmail.toLowerCase()) {
-          targetUser = user;
-          break;
-        }
-      } catch {
-        // En caso de registro corrupto se ignora
+        pago = PaymentVault.tokenizeCard(datos.tarjeta);
+      } catch (e) {
+        throw errores.datoInvalido(e.message);
       }
     }
 
-    if (!targetUser) {
-      return { success: false, reason: 'Credenciales inválidas (usuario no encontrado).' };
-    }
+    const id = crypto.randomUUID();
+    bd.insertar('users', {
+      id,
+      nombre_cifrado: encryptField(nombre, ctxUser('nombre_cifrado', id)),
+      email_cifrado: encryptField(email, ctxUser('email_cifrado', id)),
+      email_hmac: emailHmac,
+      telefono_cifrado: telefono ? encryptField(telefono, ctxUser('telefono_cifrado', id)) : null,
+      direccion_despacho_cifrada: encryptField(direccion, ctxUser('direccion_despacho_cifrada', id)),
+      comuna,
+      password_hash: await hashPassword(datos.password),
+      guardar_medio_pago: guardarMedioPago,
+      token_pago: pago.token_pago,
+      tarjeta_last4: pago.last4,
+      tarjeta_marca: pago.brand,
+      created_at: new Date().toISOString()
+    });
 
-    // Validación de contraseña mediante hashing seguro
-    const isPasswordValid = await verifyPassword(candidatePassword, targetUser.password_hash);
-    if (!isPasswordValid) {
-      return { success: false, reason: 'Credenciales inválidas (contraseña incorrecta).' };
-    }
+    LoyaltyService.inicializarCuenta(id, 500);
+    if (datos.aceptaMarketing === true) otorgarConsentimiento(id, email);
+
+    logger.info('cliente_registrado', { usuarioId: id });
+    return { id };
+  }
+
+  /** Perfil propio: descifrado bajo demanda solo para el titular. No expone el token de pago. */
+  static verPerfilPropio(sesion, userId) {
+    autorizar(sesion, PERMISOS.PERFIL_PROPIO_LEER, { propietarioId: userId, recurso: `users:${userId}` });
+    const u = bd.obtener('users', userId);
+    if (!u) throw errores.noEncontrado('Usuario');
 
     return {
-      success: true,
-      userId: targetUser.id,
-      message: 'Autenticación exitosa validada por hash bcrypt.'
+      id: u.id,
+      nombre: decryptField(u.nombre_cifrado, ctxUser('nombre_cifrado', u.id)),
+      email: decryptField(u.email_cifrado, ctxUser('email_cifrado', u.id)),
+      telefono: u.telefono_cifrado ? decryptField(u.telefono_cifrado, ctxUser('telefono_cifrado', u.id)) : null,
+      direccionDespacho: decryptField(u.direccion_despacho_cifrada, ctxUser('direccion_despacho_cifrada', u.id)),
+      comuna: u.comuna,
+      medioPago: u.guardar_medio_pago ? { marca: u.tarjeta_marca, last4: u.tarjeta_last4 } : null
     };
   }
 
-  /**
-   * Recupera el perfil del usuario descifrando la PII bajo demanda para el titular autorizado.
-   */
-  static getUserProfile(userId) {
-    const user = DB.getUserById(userId);
-    if (!user) {
-      throw new Error(`Usuario ${userId} no encontrado.`);
+  /** Edición propia: teléfono (o eliminarlo con null), dirección/comuna, dejar de guardar la tarjeta. */
+  static actualizarPerfilPropio(sesion, userId, cambios) {
+    autorizar(sesion, PERMISOS.PERFIL_PROPIO_EDITAR, { propietarioId: userId, recurso: `users:${userId}` });
+    soloCampos(cambios, POLITICA_EDICION);
+    const u = bd.obtener('users', userId);
+    if (!u) throw errores.noEncontrado('Usuario');
+
+    const fila = {};
+    if ('telefono' in cambios) {
+      fila.telefono_cifrado = cambios.telefono === null
+        ? null
+        : encryptField(validar.telefono(cambios.telefono), ctxUser('telefono_cifrado', userId));
+    }
+    if ('direccionDespacho' in cambios) {
+      fila.direccion_despacho_cifrada = encryptField(validar.direccion(cambios.direccionDespacho), ctxUser('direccion_despacho_cifrada', userId));
+    }
+    if ('comuna' in cambios) fila.comuna = validar.comuna(cambios.comuna);
+    if ('guardarMedioPago' in cambios) {
+      if (cambios.guardarMedioPago !== false) {
+        throw errores.datoInvalido('Para agregar un medio de pago use el flujo de pago de la pasarela.');
+      }
+      if (u.token_pago) PaymentVault.revokeToken(u.token_pago);
+      Object.assign(fila, { guardar_medio_pago: false, token_pago: null, tarjeta_last4: null, tarjeta_marca: null });
     }
 
-    // Descifrado bajo demanda con verificación de tag GCM
-    const nombre = decryptField(user.nombre_cifrado);
-    const email = decryptField(user.email_cifrado);
-    const direccionDespacho = decryptField(user.direccion_despacho_cifrada);
+    bd.actualizar('users', userId, fila);
+    return { actualizado: Object.keys(cambios) };
+  }
 
-    return {
-      id: user.id,
-      nombre,
-      email,
-      direccionDespacho,
-      metodoPago: {
-        mascara: user.mascara_tarjeta,
-        marca: user.tarjeta_marca,
-        token: user.token_pago
-      }
-    };
+  /** Derecho de supresión ejercido por el titular. */
+  static suprimirCuentaPropia(sesion, userId) {
+    autorizar(sesion, PERMISOS.CUENTA_PROPIA_SUPRIMIR, { propietarioId: userId, recurso: `users:${userId}` });
+    return suprimirCliente(userId);
   }
 }

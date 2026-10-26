@@ -1,12 +1,17 @@
 {
   "name": "nortishop-security-item2",
-  "version": "1.0.0",
-  "description": "Implementación criptográfica para la protección de datos personales en NortiShop - Actividad N°2",
-  "main": "src/demo.js",
+  "version": "2.0.0",
+  "description": "Minimización, seudonimización, RBAC y controles criptográficos para la protección de datos personales en NortiShop",
+  "main": "src/api.js",
   "type": "module",
+  "engines": {
+    "node": ">=20.6"
+  },
   "scripts": {
     "start": "node src/demo.js",
-    "test": "node --test"
+    "test": "node --import ./scripts/entorno-pruebas.js --test",
+    "generar-env": "node scripts/generar-env.js",
+    "matriz": "node scripts/matriz-rbac.js"
   },
   "keywords": [
     "cybersecurity",
@@ -15,9 +20,11 @@
     "bcrypt",
     "tokenization",
     "hmac",
-    "pci-dss"
+    "rbac",
+    "pseudonymization",
+    "data-minimization"
   ],
-  "author": "Catalina Toledo, María Gerónimo, Pablo Lineros",
+  "author": "Catalina Toledo, María Gerónimo, Pablo Lineros, Fabián Salinas",
   "license": "ISC",
   "dependencies": {
     "bcryptjs": "^2.4.3",

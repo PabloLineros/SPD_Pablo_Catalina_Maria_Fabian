@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { CONFIG } from '../config/env.js';
+import { usarLlave, FINALIDADES } from './keyring.js';
 
 /**
  * Módulo Criptográfico: Integridad y Autenticidad mediante HMAC-SHA256
@@ -10,42 +10,35 @@ import { CONFIG } from '../config/env.js';
  */
 
 /**
- * Genera un código HMAC-SHA256 sobre una carga de datos y un identificador de contexto.
- * @param {string|number|object} data Información a proteger (ej. saldo de puntos o payload).
- * @param {string} context Identificador contextual (ej. userId o id_transaccion).
- * @returns {string} Firma HMAC en formato hexadecimal (64 caracteres hex).
+ * Calcula HMAC-SHA256 de un mensaje con la llave de la finalidad indicada.
+ * @param {string} finalidad Una de FINALIDADES (cada uso tiene su propia llave).
+ * @param {string} mensaje
+ * @returns {string} 64 caracteres hexadecimales.
  */
-export function generateHMAC(data, context = '') {
-  const serialized = typeof data === 'object' ? JSON.stringify(data) : String(data);
-  const message = `${context}:${serialized}`;
-
-  const hmac = crypto.createHmac('sha256', CONFIG.HMAC_SECRET);
-  hmac.update(message, 'utf8');
-  return hmac.digest('hex');
+export function hmacHex(finalidad, mensaje) {
+  return crypto.createHmac('sha256', usarLlave(finalidad)).update(String(mensaje), 'utf8').digest('hex');
 }
 
 /**
- * Verifica la autenticidad e integridad de un dato contra un código HMAC provisto.
- * Utiliza comparación de tiempo constante (timingSafeEqual) para mitigar Timing Attacks.
- * @param {string|number|object} data Información actual.
- * @param {string} context Identificador de contexto.
- * @param {string} providedHmac Firma HMAC almacenada o recibida.
- * @returns {boolean} True si la firma es matemáticamente válida, False si fue alterado.
+ * Comparación en tiempo constante de dos HMAC hexadecimales.
  */
-export function verifyHMAC(data, context, providedHmac) {
-  if (!providedHmac || typeof providedHmac !== 'string') {
+export function compararHmac(esperado, provisto) {
+  if (typeof provisto !== 'string' || !/^[0-9a-f]{64}$/.test(provisto)) {
     return false;
   }
+  return crypto.timingSafeEqual(Buffer.from(esperado, 'hex'), Buffer.from(provisto, 'hex'));
+}
 
-  const expectedHmac = generateHMAC(data, context);
-  const expectedBuffer = Buffer.from(expectedHmac, 'hex');
-  const providedBuffer = Buffer.from(providedHmac, 'hex');
+/**
+ * Firma el estado de una cuenta de puntos. La VERSIÓN forma parte del mensaje: cada
+ * movimiento incrementa la versión, y el servicio exige que coincida con el número de
+ * movimientos del historial. Así, restaurar una fila antigua (saldo + firma válidos de
+ * una versión anterior) queda en evidencia.
+ */
+export function firmarSaldo(userId, version, saldo) {
+  return hmacHex(FINALIDADES.INTEGRIDAD, `${userId}:${version}:${saldo}`);
+}
 
-  // Si las longitudes difieren, se descarta de inmediato
-  if (expectedBuffer.length !== providedBuffer.length) {
-    return false;
-  }
-
-  // Comparación segura en tiempo constante
-  return crypto.timingSafeEqual(expectedBuffer, providedBuffer);
+export function verificarFirmaSaldo(userId, version, saldo, firma) {
+  return compararHmac(firmarSaldo(userId, version, saldo), firma);
 }

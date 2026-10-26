@@ -1,112 +1,92 @@
-# NortiShop — Implementación de controles criptográficos
+# NortiShop — Minimización, seudonimización, RBAC y controles criptográficos
 
-**Entregable técnico — Ítem II**  
-**Actividad:** Del caso a los primeros riesgos: cifrado de datos personales  
 **Caso de estudio:** Plataforma de comercio electrónico NortiShop
+**Integrantes:** Catalina Toledo · María Gerónimo · Pablo Lineros · Fabián Salinas
 
-## Integrantes
+## 1. Descripción
 
-- Catalina Toledo
-- María Gerónimo
-- Pablo Lineros
+Prototipo del backend de NortiShop que implementa en código las decisiones de diseño de los scripts SQL de la raíz del repositorio:
 
-## 1. Descripción del proyecto
+| Archivo | Contenido |
+|---|---|
+| [`00_esquema_original.sql`](../00_esquema_original.sql) | Esquema antes del rediseño, con sus riesgos marcados. |
+| [`01_minimizacion.sql`](../01_minimizacion.sql) | Esquema rediseñado aplicando minimización. |
+| [`02_seudonimizacion.sql`](../02_seudonimizacion.sql) | Seudonimización y anonimización. |
+| [`03_rbac.sql`](../03_rbac.sql) | Roles y permisos en la base de datos. |
 
-Este proyecto presenta una implementación académica de controles criptográficos para proteger datos personales y transaccionales de la plataforma ficticia NortiShop. Se basa en el análisis de campos sensibles desarrollado en el Ítem I.
+Controles implementados:
 
-La solución incorpora los siguientes mecanismos:
+1. **Minimización.** Cada operación declara qué campos acepta y rechaza el resto (`CAMPO_NO_PERMITIDO`). La base de datos simulada también rechaza columnas fuera del esquema y texto plano en columnas protegidas.
+2. **Protección de campos sensibles:**
+   - bcrypt para contraseñas.
+   - AES-256-GCM con contexto obligatorio (`<tabla>.<campo>:<id>`) para los datos personales.
+   - Tokenización de la tarjeta; solo se guardan los últimos 4 dígitos.
+   - HMAC con versión e historial para los NortiPuntos.
+3. **Seudonimización.** Índice ciego para el login y seudónimos HMAC distintos para reseñas, analítica y marketing. La tabla que permite revertirlos solo la lee el servicio de privacidad.
+4. **Anonimización.** Reporte agregado con k = 5. Los contactos de invitados se borran al vencer el plazo de conservación. Hay una copia sintética para desarrollo.
+5. **RBAC.** Ocho roles con permisos en lista blanca y verificación de que el recurso pertenezca al usuario. La auditoría registra accesos permitidos y denegados.
+6. **Gestión de llaves.** Una llave por finalidad. Se retiran de `process.env` al cargarse y solo `src/crypto/` puede usarlas.
+7. **Errores y registros seguros.** Mensajes de error genéricos y logs con redacción automática de datos personales.
 
-1. **Hashing de contraseñas con `bcryptjs`:** almacena contraseñas como hashes con sal y un factor de costo configurable. El proceso no permite recuperar la contraseña original a partir del hash.
-2. **Cifrado autenticado AES-256-GCM:** protege información personal identificable (PII), como correos electrónicos y direcciones. Utiliza un vector de inicialización (IV) aleatorio y una etiqueta de autenticación para detectar modificaciones.
-3. **Tokenización simulada de medios de pago:** sustituye el número de tarjeta (PAN) por un token y conserva una máscara para su identificación visual. La bóveda incluida en este proyecto es únicamente un simulador académico; no procesa pagos reales ni acredita cumplimiento de PCI DSS.
-4. **Verificación de integridad mediante HMAC-SHA256:** permite detectar modificaciones no autorizadas en los saldos de puntos de fidelización.
-5. **Configuración mediante variables de entorno:** obtiene las claves criptográficas y otros parámetros de configuración desde el entorno de ejecución, en lugar de definirlos directamente en el código fuente.
+> **Alcance:** proyecto académico. La base de datos y la pasarela de pago son simulaciones en memoria. No acredita cumplimiento de PCI DSS ni de la Ley 21.719.
 
-> **Alcance:** este proyecto tiene fines educativos. Su implementación no constituye una certificación ni garantiza, por sí sola, el cumplimiento de leyes, normas o estándares de seguridad.
-
-## 2. Estructura del proyecto
+## 2. Estructura
 
 ```text
 ITEM2/
-├── .env.example                # Plantilla de configuración sin secretos de uso real
-├── .env                        # Configuración local; no debe incluirse en Git
-├── .gitignore                  # Exclusiones para archivos locales y secretos
-├── package.json                # Dependencias y comandos del proyecto
-├── README.md                   # Documentación del proyecto
+├── scripts/
+│   ├── generar-env.js        # Crea/completa .env con llaves aleatorias (no sobrescribe)
+│   ├── entorno-pruebas.js    # Llaves efímeras para npm test
+│   └── matriz-rbac.js        # Imprime la matriz RBAC desde el código
 ├── src/
-│   ├── config/
-│   │   └── env.js              # Carga y validación de la configuración
+│   ├── api.js                # Endpoints del servidor: sesión + errores seguros
+│   ├── config/env.js         # Configuración no secreta
 │   ├── crypto/
-│   │   ├── hashing.js          # Hashing de contraseñas con bcrypt
-│   │   ├── cipher.js           # Cifrado y descifrado AES-256-GCM
-│   │   ├── integrity.js        # Generación y verificación de HMAC-SHA256
-│   │   └── tokenization.js     # Simulador académico de tokenización
-│   ├── db/
-│   │   └── repository.js       # Repositorio simulado en memoria
-│   ├── services/
-│   │   ├── userService.js      # Registro, autenticación y consulta de perfiles
-│   │   ├── orderService.js     # Flujo simulado de pedidos y cobros por token
-│   │   └── loyaltyService.js   # Gestión e integridad de puntos
-│   └── demo.js                 # Demostración del flujo principal
-└── test/
-    └── security.test.js        # Pruebas automatizadas de seguridad
+│   │   ├── keyring.js        # Llavero: una llave por finalidad
+│   │   ├── cipher.js         # AES-256-GCM con AAD obligatorio
+│   │   ├── hashing.js        # bcrypt + política de contraseñas + señuelo anti-enumeración
+│   │   ├── integrity.js      # HMAC-SHA256 (firma de saldos)
+│   │   ├── pseudonymization.js # Índice ciego y seudónimos por finalidad
+│   │   └── tokenization.js   # Bóveda de pagos simulada
+│   ├── db/repository.js      # BD simulada: esquema, tipos protegidos y GRANTS por rol
+│   ├── security/
+│   │   ├── rbac.js           # Roles, permisos, matriz y autorizar()
+│   │   ├── audit.js          # Auditoría (solo inserción)
+│   │   ├── logger.js         # Registros con redacción automática
+│   │   ├── errors.js         # Errores con código y mensaje público
+│   │   └── validation.js     # Lista blanca de campos, validaciones y enmascaramiento
+│   ├── services/             # auth, user, order, loyalty, review, marketing,
+│   │                         # support, logistics, catalog, admin, privacy
+│   ├── dev/escenario.js      # Datos SINTÉTICOS para demo y pruebas
+│   └── demo.js               # Recorrido por consola de todos los controles
+└── test/                     # 50 pruebas: criptografía, minimización,
+                              # seudonimización, RBAC y registros
 ```
 
 ## 3. Requisitos
 
-- **Node.js:** versión 18 o superior.
-- **npm:** versión 9 o superior.
+Node.js 20.6 o superior y npm 9 o superior.
 
-## 4. Instalación y configuración
-
-Desde una terminal, ingresa al directorio del proyecto e instala las dependencias:
+## 4. Instalación
 
 ```bash
 cd ITEM2
 npm install
+npm run generar-env
 ```
 
-Crea una configuración local a partir de la plantilla:
-
-```bash
-cp .env.example .env
-```
-
-Edita `.env` y define valores adecuados para el entorno local. La clave AES-256 debe corresponder a 32 bytes, normalmente representados por 64 caracteres hexadecimales. Para generar una clave aleatoria desde Node.js:
-
-```bash
-node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
-```
-
-El archivo `.env` contiene valores de configuración sensibles: no debe subirse a Git ni compartirse. `.env.example` debe contener únicamente nombres de variables y valores de ejemplo no utilizables como secretos reales.
+`generar-env` crea `.env` con seis llaves aleatorias, una por finalidad. Si `.env` ya existe, solo agrega las variables que falten y no modifica las demás. Las llaves no se imprimen en pantalla.
 
 ## 5. Ejecución
 
-### Demostración
+| Comando | Qué hace |
+|---|---|
+| `npm start` | Demo por consola: minimización, datos en reposo, seudonimización, RBAC, integridad y logs. |
+| `npm test` | Ejecuta la batería de pruebas con llaves efímeras (no usa las de `.env`). |
+| `npm run matriz` | Imprime la matriz RBAC en Markdown, generada desde `src/security/rbac.js`. |
 
-Para ejecutar el flujo de demostración:
+## 6. Consideraciones de seguridad
 
-```bash
-npm start
-```
-
-También puede ejecutarse directamente:
-
-```bash
-node src/demo.js
-```
-
-### Pruebas automatizadas
-
-Para ejecutar la suite de pruebas:
-
-```bash
-npm test
-```
-
-Las pruebas verifican el hashing de contraseñas, el cifrado y la detección de alteraciones, la tokenización simulada, la integridad de los puntos y el flujo de servicios.
-
-## 6. Consideraciones de seguridad que deben ser recalcadas pero que no se consideraron en este caso:
-- No se deben almacenar claves reales en el código fuente ni en archivos que se suban al repositorio, si no que deben estar en un archivo .env
-- Los valores de `.env.example` deben ser marcadores o datos ficticios, nunca credenciales activas.
-- Si una clave real se publica o se comparte accidentalmente, debe considerarse comprometida y reemplazarse inmediatamente!
+- `.env` no se versiona. `.env.example` solo trae los nombres de las variables, con las llaves vacías.
+- Si una llave se expone, debe considerarse comprometida y rotarse. En producción, las llaves vendrían de un gestor de secretos o KMS.
+- La demo y las pruebas usan solo datos sintéticos (dominio `.test`). Nunca se deben usar datos reales en desarrollo.

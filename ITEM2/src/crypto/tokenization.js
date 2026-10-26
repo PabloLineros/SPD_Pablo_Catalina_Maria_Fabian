@@ -5,92 +5,103 @@ import crypto from 'node:crypto';
  * Principio: Cumplimiento de PCI-DSS (Payment Card Industry Data Security Standard).
  * El e-commerce NortiShop NUNCA debe almacenar en sus bases de datos números de tarjeta (PAN),
  * fechas de vencimiento ni códigos CVV.
- * 
+ *
  * En su lugar, el cliente envía la tarjeta directamente a una Pasarela/Vault externo.
  * La bóveda externa custodia el PAN y emite:
  * 1. Un TOKEN opaco (sin relación matemática reversible con el PAN).
- * 2. Una MÁSCARA segura (solo últimos 4 dígitos) para fines de UX (visualización en panel).
+ * 2. Los ÚLTIMOS 4 DÍGITOS y la marca (minimización: no se entrega una máscara completa
+ *    porque revela el largo del PAN).
+ *
+ * Este simulador NO guarda el PAN ni una huella de él: un SHA-256 sin sal de un PAN es
+ * reversible por fuerza bruta (el espacio de números de tarjeta es pequeño).
  */
+
+function luhnValido(pan) {
+  let suma = 0;
+  let doblar = false;
+  for (let i = pan.length - 1; i >= 0; i--) {
+    let d = Number(pan[i]);
+    if (doblar) {
+      d *= 2;
+      if (d > 9) d -= 9;
+    }
+    suma += d;
+    doblar = !doblar;
+  }
+  return suma % 10 === 0;
+}
+
+function detectarMarca(pan) {
+  if (/^4/.test(pan)) return 'VISA';
+  if (/^(5[1-5]|2(2[2-9]|[3-6]\d|7[01]|720))/.test(pan)) return 'MASTERCARD';
+  if (/^3[47]/.test(pan)) return 'AMERICAN_EXPRESS';
+  return 'OTRA';
+}
 
 class MockPaymentVault {
   constructor() {
-    // Bóveda aislada simulada (en producción, esto reside en la infraestructura de Stripe/Transbank)
+    // Bóveda aislada simulada (en producción, esto reside en la infraestructura de la pasarela)
     this.vault = new Map();
   }
 
   /**
    * Recibe datos de tarjeta desde el cliente y genera un token seguro.
-   * @param {object} cardData { pan, cardHolder, expirationDate, cvv }
-   * @returns {object} { token_pago, mascara_tarjeta, brand }
+   * El CVV se valida pero nunca se almacena (PCI-DSS 3.3.1.2).
+   * @param {object} cardData { pan, expirationDate, cvv }
+   * @returns {object} { token_pago, last4, brand }
    */
-  tokenizeCard({ pan, cardHolder, expirationDate, cvv }) {
-    // Limpieza del PAN
-    const sanitizedPan = String(pan).replace(/\s+/g, '').replace(/-/g, '');
+  tokenizeCard({ pan, expirationDate, cvv } = {}) {
+    const sanitizedPan = String(pan ?? '').replace(/[\s-]/g, '');
 
-    if (!/^\d{13,19}$/.test(sanitizedPan)) {
-      throw new Error('Número de tarjeta (PAN) inválido. Debe contener entre 13 y 19 dígitos.');
+    if (!/^\d{13,19}$/.test(sanitizedPan) || !luhnValido(sanitizedPan)) {
+      throw new Error('Número de tarjeta inválido.');
+    }
+    if (!/^\d{3,4}$/.test(String(cvv ?? ''))) {
+      throw new Error('Código de seguridad inválido.');
+    }
+    if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(String(expirationDate ?? ''))) {
+      throw new Error('Fecha de vencimiento inválida (MM/AA).');
     }
 
-    if (!cvv || String(cvv).length < 3) {
-      throw new Error('Código CVV inválido.');
-    }
-
-    // 1. Generación de Token Opaco Criptográfico (UUID v4 + prefijo de entorno)
-    const tokenBytes = crypto.randomBytes(16).toString('hex');
-    const token_pago = `tok_norti_vault_${tokenBytes}`;
-
-    // 2. Generación de Máscara de Tarjeta según norma PCI-DSS Requirement 3.3
-    // Solo se conservan legibles los últimos 4 dígitos. El resto se enmascara con '*'
+    const token_pago = `tok_norti_vault_${crypto.randomBytes(16).toString('hex')}`;
     const last4 = sanitizedPan.slice(-4);
-    const maskedLength = sanitizedPan.length - 4;
-    const mascara_tarjeta = `${'*'.repeat(maskedLength)}${last4}`;
+    const brand = detectarMarca(sanitizedPan);
 
-    // Determinación de marca de tarjeta
-    let brand = 'VISA';
-    if (sanitizedPan.startsWith('5')) brand = 'MASTERCARD';
-    else if (sanitizedPan.startsWith('3')) brand = 'AMERICAN_EXPRESS';
+    // En una bóveda real aquí se custodiaría el PAN cifrado; el simulador no lo necesita.
+    this.vault.set(token_pago, { brand, createdAt: new Date().toISOString() });
 
-    // 3. Almacenamiento seguro EXCLUSIVO en la bóveda externa (fuera de la BD de NortiShop)
-    this.vault.set(token_pago, {
-      panHash: crypto.createHash('sha256').update(sanitizedPan).digest('hex'),
-      cardHolder,
-      expirationDate,
-      brand,
-      createdAt: new Date().toISOString()
-    });
-
-    // 4. Retorno a la aplicación NortiShop: ÚNICAMENTE token y máscara
-    return {
-      token_pago,
-      mascara_tarjeta,
-      brand
-    };
+    return { token_pago, last4, brand };
   }
 
   /**
    * Ejecuta un cobro simulado utilizando el token de pago previamente emitido.
-   * La aplicación de comercio electrónico nunca conoce ni procesa el PAN.
    * @param {string} tokenPago Token registrado del cliente.
-   * @param {number} amount Monto de la compra.
+   * @param {number} amount Monto de la compra en CLP.
    */
   chargeWithToken(tokenPago, amount) {
-    if (!this.vault.has(tokenPago)) {
-      throw new Error(`Transacción rechazada: El token de pago '${tokenPago}' no existe o ha expirado.`);
+    if (!Number.isInteger(amount) || amount <= 0) {
+      throw new Error('Monto de cobro inválido.');
     }
-
     const cardInfo = this.vault.get(tokenPago);
-    const transactionId = `tx_auth_${crypto.randomBytes(8).toString('hex')}`;
-    const authorizationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    if (!cardInfo) {
+      // No se incluye el token en el mensaje: los errores terminan en logs.
+      throw new Error('Transacción rechazada: medio de pago no válido o expirado.');
+    }
 
     return {
       success: true,
-      transactionId,
-      authorizationCode,
+      transactionId: `tx_auth_${crypto.randomBytes(8).toString('hex')}`,
+      authorizationCode: String(crypto.randomInt(100000, 1000000)),
       amount,
       currency: 'CLP',
       brand: cardInfo.brand,
       timestamp: new Date().toISOString()
     };
+  }
+
+  /** Invalida un token (cuando el cliente elimina su medio de pago o su cuenta). */
+  revokeToken(tokenPago) {
+    this.vault.delete(tokenPago);
   }
 }
 
