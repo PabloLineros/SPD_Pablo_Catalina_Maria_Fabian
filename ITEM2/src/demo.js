@@ -37,7 +37,7 @@ async function main() {
 
   // ---------------------------------------------------------------------------
   titulo('Parte 1. Minimización de datos');
-  const base = { nombre: 'Carla Demo', email: 'carla@ejemplo.test', password: PASSWORD_PRUEBA, direccionDespacho: 'Avenida Sintética 99', comuna: 'Iquique' };
+  const base = { nombre: 'Carla Demo', email: 'carla@ejemplo.test', password: PASSWORD_PRUEBA, direccionDespacho: 'Avenida Sintética 99', comuna: 'Iquique', declaraMayorDeEdad: true };
 
   sub('El servidor rechaza datos que no son necesarios');
   resultado('Registro con fecha_nacimiento', await API.auth.registrar({ ...base, fecha_nacimiento: '1999-01-01' }));
@@ -86,10 +86,11 @@ async function main() {
   sub('Analítica: ETL seudonimiza (HMAC con K_analitica) y generaliza (mes, rango, categoría, comuna)');
   for (let i = 0; i < 5; i++) {
     const email = `k${i}@ejemplo.test`;
-    ok(await API.auth.registrar({ nombre: `Cliente K ${i}`, email, password: PASSWORD_PRUEBA, direccionDespacho: `Calle K ${i}`, comuna: 'Antofagasta' }));
+    ok(await API.auth.registrar({ nombre: `Cliente K ${i}`, email, password: PASSWORD_PRUEBA, direccionDespacho: `Calle K ${i}`, comuna: 'Antofagasta', declaraMayorDeEdad: true, aceptaAnalitica: true }));
     const { token } = ok(await API.auth.iniciarSesion({ email, password: PASSWORD_PRUEBA }));
     ok(await API.cliente.crearPedido(token, { items: [{ productoId: ids.productos[1], cantidad: 1 }], tarjeta: TARJETA_VISA }));
   }
+  ok(await API.consentimiento.otorgar(tokens.clienteB, ids.clienteB, { finalidad: 'ANALITICA_COMPRAS', version: '1.0' }));
   ok(await API.cliente.crearPedido(tokens.clienteB, { items: [{ productoId: ids.productos[1], cantidad: 1 }], tarjeta: TARJETA_VISA }));
   json(ok(await API.privacidad.ejecutarEtl(tokens.privacidad)));
   console.log('  Ejemplo de fila en analitica.compras (lo que ve el ANALISTA):');

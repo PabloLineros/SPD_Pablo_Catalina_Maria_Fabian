@@ -5,6 +5,7 @@ import { autorizar, PERMISOS } from '../security/rbac.js';
 import { errores } from '../security/errors.js';
 import { validar } from '../security/validation.js';
 import { logger } from '../security/logger.js';
+import { registrarAuditoria } from '../security/audit.js';
 
 /**
  * Servicio de Fidelización: NortiPuntos
@@ -23,6 +24,18 @@ import { logger } from '../security/logger.js';
 const bd = DB.conectar(ROLES_BD.SVC_APP);
 const PUNTOS_POR_CLP = 100; // 1 punto por cada $100
 
+/** Verificación de todas las cuentas (uso interno: comprobaciones antes de recuperar el servicio). */
+export function cuentasConIntegridadRota() {
+  return bd.seleccionar('loyalty_accounts').filter(c => {
+    try {
+      cargarCuentaVerificada(c.user_id);
+      return false;
+    } catch {
+      return true;
+    }
+  }).map(c => c.user_id);
+}
+
 function cargarCuentaVerificada(userId) {
   const cuenta = bd.obtener('loyalty_accounts', userId);
   if (!cuenta) throw errores.noEncontrado('Cuenta de puntos');
@@ -36,6 +49,7 @@ function cargarCuentaVerificada(userId) {
 
   if (!integra) {
     logger.error('integridad_puntos_comprometida', { usuarioId: userId });
+    registrarAuditoria({ actorId: 'sistema', actorRol: 'SISTEMA', accion: 'seguridad:integridad_puntos', recurso: `loyalty:${userId}`, resultado: 'FALLIDO', motivo: 'FIRMA_O_HISTORIAL_INCONSISTENTE' });
     throw errores.integridad();
   }
   return cuenta;

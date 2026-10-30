@@ -8,12 +8,17 @@ import { SupportService } from './services/supportService.js';
 import { LogisticsService } from './services/logisticsService.js';
 import { CatalogService } from './services/catalogService.js';
 import { AdminService } from './services/adminService.js';
+import { ConsentService } from './services/consentService.js';
+import { RightsService } from './services/rightsService.js';
+import { AuditService } from './services/auditService.js';
+import { IncidentService } from './services/incidentService.js';
 import * as Privacidad from './services/privacyService.js';
+import './security/detection.js'; // activa la detección sobre el flujo de auditoría
 import { respuestaDeError } from './security/errors.js';
 import { logger } from './security/logger.js';
 
 /**
- * Capa de API del servidor (equivalente a los controladores/rutas HTTP).
+ * Capa de API del servidor (la usan src/server.js, la demo y las pruebas).
  * - protegido(): exige token de sesión válido; la autorización por rol/propiedad la hace
  *   cada servicio con autorizar() (defensa en profundidad: no depende de la interfaz).
  * - Toda respuesta es { ok, data } o { ok:false, error:{codigo, estado, mensaje} }.
@@ -50,21 +55,32 @@ export const API = {
   cliente: {
     verPerfil: protegido('cliente.verPerfil', (s, userId) => UserService.verPerfilPropio(s, userId)),
     actualizarPerfil: protegido('cliente.actualizarPerfil', (s, userId, cambios) => UserService.actualizarPerfilPropio(s, userId, cambios)),
-    suprimirCuenta: protegido('cliente.suprimirCuenta', (s, userId) => UserService.suprimirCuentaPropia(s, userId)),
     crearPedido: protegido('cliente.crearPedido', (s, entrada) => OrderService.crearPedido(s, entrada)),
     misPedidos: protegido('cliente.misPedidos', (s, userId) => OrderService.listarPedidosPropios(s, userId)),
     saldoPuntos: protegido('cliente.saldoPuntos', (s, userId) => LoyaltyService.saldoPropio(s, userId)),
     canjearPuntos: protegido('cliente.canjearPuntos', (s, userId, puntos) => LoyaltyService.canjear(s, userId, puntos)),
-    publicarResena: protegido('cliente.publicarResena', (s, entrada) => ReviewService.publicar(s, entrada)),
-    consentimientoMarketing: protegido('cliente.consentimiento', (s, userId, entrada) => MarketingService.gestionarConsentimiento(s, userId, entrada))
+    publicarResena: protegido('cliente.publicarResena', (s, entrada) => ReviewService.publicar(s, entrada))
+  },
+  consentimiento: {
+    estado: protegido('consentimiento.estado', (s, userId) => ConsentService.estado(s, userId)),
+    otorgar: protegido('consentimiento.otorgar', (s, userId, entrada) => ConsentService.otorgar(s, userId, entrada)),
+    revocar: protegido('consentimiento.revocar', (s, userId, entrada) => ConsentService.revocar(s, userId, entrada)),
+    historial: protegido('consentimiento.historial', (s, userId) => ConsentService.historial(s, userId)),
+    desuscribir: publico('consentimiento.desuscribir', (token) => ConsentService.desuscribirPorToken(token)),
+    publicarVersion: protegido('consentimiento.publicarVersion', (s, entrada) => ConsentService.publicarVersion(s, entrada))
+  },
+  derechos: {
+    solicitar: protegido('derechos.solicitar', (s, userId, entrada) => RightsService.solicitar(s, userId, entrada)),
+    confirmar: protegido('derechos.confirmar', (s, userId, solicitudId, entrada) => RightsService.confirmar(s, userId, solicitudId, entrada)),
+    misSolicitudes: protegido('derechos.misSolicitudes', (s, userId) => RightsService.misSolicitudes(s, userId)),
+    gestion: protegido('derechos.gestion', (s) => RightsService.listarGestion(s))
   },
   invitado: {
     crearPedido: publico('invitado.crearPedido', (entrada) => OrderService.crearPedidoInvitado(entrada)),
     consultarPedido: publico('invitado.consultarPedido', (token) => OrderService.consultarPedidoInvitado(token))
   },
   marketing: {
-    exportarSuscriptores: protegido('marketing.exportar', (s) => MarketingService.exportarSuscriptores(s)),
-    desuscribir: publico('marketing.desuscribir', (token) => MarketingService.desuscribirPorToken(token))
+    exportarSuscriptores: protegido('marketing.exportar', (s) => MarketingService.exportarSuscriptores(s))
   },
   soporte: {
     buscarCliente: protegido('soporte.buscar', (s, email) => SupportService.buscarCliente(s, email)),
@@ -85,14 +101,35 @@ export const API = {
   },
   privacidad: {
     ejecutarEtl: protegido('privacidad.etl', (s) => Privacidad.ejecutarEtlAnalitica(s)),
-    anonimizarInvitados: protegido('privacidad.anonimizar', (s, ahora) => Privacidad.anonimizarInvitadosVencidos(s, ahora)),
+    anonimizarInvitados: protegido('privacidad.anonimizar', (s, ahora) => Privacidad.anonimizarInvitadosVencidos(s, ahora ? new Date(ahora) : undefined)),
     revertirSeudonimo: protegido('privacidad.revertir', (s, entrada) => Privacidad.revertirSeudonimo(s, entrada)),
-    copiaDesarrollo: protegido('privacidad.copiaDesarrollo', (s) => Privacidad.generarCopiaDesarrollo(s))
+    copiaDesarrollo: protegido('privacidad.copiaDesarrollo', (s) => Privacidad.generarCopiaDesarrollo(s)),
+    reaplicarSupresiones: protegido('privacidad.reaplicarSupresiones', (s) => Privacidad.reaplicarSupresiones(s))
+  },
+  auditoria: {
+    consultar: protegido('auditoria.consultar', (s, filtros) => AuditService.consultar(s, filtros)),
+    verificar: protegido('auditoria.verificar', (s) => AuditService.verificar(s)),
+    purgarVencidos: protegido('auditoria.purgar', (s, ahora) => AuditService.purgarVencidos(s, ahora ? new Date(ahora) : undefined))
+  },
+  seguridad: {
+    alertas: protegido('seguridad.alertas', (s, filtros) => IncidentService.listarAlertas(s, filtros)),
+    descartarAlerta: protegido('seguridad.descartarAlerta', (s, id, entrada) => IncidentService.descartarAlerta(s, id, entrada)),
+    abrirIncidente: protegido('seguridad.abrir', (s, entrada) => IncidentService.abrir(s, entrada)),
+    analizar: protegido('seguridad.analizar', (s, id, entrada) => IncidentService.analizar(s, id, entrada)),
+    preservarEvidencia: protegido('seguridad.evidencia', (s, id) => IncidentService.preservarEvidencia(s, id)),
+    contener: protegido('seguridad.contener', (s, id, entrada) => IncidentService.contener(s, id, entrada)),
+    erradicar: protegido('seguridad.erradicar', (s, id, entrada) => IncidentService.erradicar(s, id, entrada)),
+    recuperar: protegido('seguridad.recuperar', (s, id) => IncidentService.recuperar(s, id)),
+    evaluarNotificacion: protegido('seguridad.evaluarNotificacion', (s, id) => IncidentService.evaluarNotificacion(s, id)),
+    autorizarNotificacion: protegido('seguridad.autorizarNotificacion', (s, id, entrada) => IncidentService.autorizarNotificacion(s, id, entrada)),
+    cerrar: protegido('seguridad.cerrar', (s, id, entrada) => IncidentService.cerrar(s, id, entrada)),
+    incidentes: protegido('seguridad.incidentes', (s) => IncidentService.listar(s)),
+    detalle: protegido('seguridad.detalle', (s, id) => IncidentService.detalle(s, id))
   },
   admin: {
     crearPersonal: protegido('admin.crearPersonal', (s, datos) => AdminService.crearPersonal(s, datos)),
     asignarRol: protegido('admin.asignarRol', (s, id, rol) => AdminService.asignarRol(s, id, rol)),
     desactivarPersonal: protegido('admin.desactivar', (s, id) => AdminService.desactivarPersonal(s, id)),
-    auditoria: protegido('admin.auditoria', (s, opciones) => AdminService.leerAuditoria(s, opciones))
+    auditoria: protegido('admin.auditoria', (s, filtros) => AuditService.consultar(s, filtros))
   }
 };

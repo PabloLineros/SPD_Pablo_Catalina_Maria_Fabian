@@ -45,6 +45,15 @@ function validateConfig() {
     K_ANONIMATO: 5,
     // Intentos fallidos de login antes de bloquear temporalmente
     MAX_INTENTOS_LOGIN: 5,
+    // Ejercicio de derechos: plazo de respuesta (Ley 21.719: 30 días corridos, prorrogable una vez)
+    PLAZO_RESPUESTA_DERECHOS_DIAS: 30,
+    // Códigos de verificación de un solo uso
+    CODIGO_VERIFICACION_MINUTOS: 10,
+    CODIGO_VERIFICACION_MAX_INTENTOS: 5,
+    // Conservación de la auditoría: 24 meses; luego se purga por lotes con constancia
+    RETENCION_AUDITORIA_DIAS: 730,
+    // Puerto del servidor HTTP de demostración
+    PUERTO: parseInt(process.env.PORT || '3000', 10),
     LOG_A_CONSOLA: process.env.LOG_A_CONSOLA === 'true'
   });
 }

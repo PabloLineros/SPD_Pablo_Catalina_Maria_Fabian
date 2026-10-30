@@ -3,6 +3,8 @@ import { DB } from '../db/repository.js';
 import { AdminService } from '../services/adminService.js';
 import { reiniciarIntentos } from '../services/authService.js';
 import { logger } from '../security/logger.js';
+import { reiniciarDeteccion } from '../security/detection.js';
+import { vaciarBandejas, ultimoCodigoPara } from '../infra/correo.js';
 
 /**
  * Escenario de DATOS SINTÉTICOS para la demo y las pruebas.
@@ -25,12 +27,23 @@ export const TARJETA_MC = { pan: '5555555555554444', expirationDate: '08/28', cv
 
 const PERSONAL = [
   ['OFICIAL_PRIVACIDAD', 'privacidad'],
+  ['SEGURIDAD', 'seguridad'],
   ['SOPORTE', 'soporte'],
   ['LOGISTICA', 'logistica'],
   ['CATALOGO', 'catalogo'],
   ['MARKETING', 'marketing'],
   ['ANALISTA', 'analista']
 ];
+
+/**
+ * Ejerce un derecho de punta a punta como lo haría el titular: crea la solicitud, lee el código
+ * de la bandeja simulada (si se requiere) y confirma con su contraseña.
+ */
+export async function ejercerDerecho(token, userId, entrada, { emailCodigo, password = PASSWORD_PRUEBA } = {}) {
+  const solicitud = ok(await API.derechos.solicitar(token, userId, entrada));
+  const codigo = solicitud.verificacion.requiereCodigo ? ultimoCodigoPara(emailCodigo) : undefined;
+  return API.derechos.confirmar(token, userId, solicitud.id, codigo ? { password, codigo } : { password });
+}
 
 async function login(email) {
   return ok(await API.auth.iniciarSesion({ email, password: PASSWORD_PRUEBA }));
@@ -39,6 +52,8 @@ async function login(email) {
 export async function prepararEscenario() {
   DB.reiniciar();
   reiniciarIntentos();
+  reiniciarDeteccion();
+  vaciarBandejas();
   logger.limpiar();
 
   const tokens = {};
@@ -70,9 +85,11 @@ export async function prepararEscenario() {
     direccionDespacho: 'Calle Ficticia 123, Depto 4',
     comuna: 'Antofagasta',
     telefono: '+56 9 1111 2222',
+    declaraMayorDeEdad: true,
     guardarMedioPago: true,
     tarjeta: TARJETA_VISA,
-    aceptaMarketing: true
+    aceptaMarketing: true,
+    aceptaAnalitica: true
   })).id;
   tokens.clienteA = (await login('ana.prueba@ejemplo.test')).token;
 
@@ -81,7 +98,8 @@ export async function prepararEscenario() {
     email: 'bruno.prueba@ejemplo.test',
     password: PASSWORD_PRUEBA,
     direccionDespacho: 'Pasaje Inventado 456',
-    comuna: 'Calama'
+    comuna: 'Calama',
+    declaraMayorDeEdad: true
   })).id;
   tokens.clienteB = (await login('bruno.prueba@ejemplo.test')).token;
 

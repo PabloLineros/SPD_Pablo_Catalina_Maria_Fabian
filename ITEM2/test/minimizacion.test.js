@@ -9,7 +9,8 @@ const base = {
   email: 'carla@ejemplo.test',
   password: PASSWORD_PRUEBA,
   direccionDespacho: 'Avenida Sintética 99',
-  comuna: 'Iquique'
+  comuna: 'Iquique',
+  declaraMayorDeEdad: true
 };
 
 test('Registro rechaza datos no necesarios (fecha de nacimiento, sexo, RUT, foto)', async () => {

@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
 import { CONFIG } from '../config/env.js';
 import { DB, ROLES_BD } from '../db/repository.js';
-import { seudonimo } from '../crypto/pseudonymization.js';
-import { PaymentVault } from '../crypto/tokenization.js';
+import { seudonimo, huellaSupresion } from '../crypto/pseudonymization.js';
+import { titularesHabilitados, revocarTodoPorSupresion } from './consentService.js';
 import { autorizar, PERMISOS } from '../security/rbac.js';
 import { registrarAuditoria } from '../security/audit.js';
 import { errores } from '../security/errors.js';
@@ -60,6 +60,7 @@ const primerDiaDelMes = (iso) => `${iso.slice(0, 7)}-01`;
  * ETL hacia el esquema analitica: seudonimiza (HMAC con llave de analítica) y generaliza
  * (mes en vez de fecha, rango en vez de monto, categoría en vez de producto, comuna en vez
  * de dirección). Suprime ids de pedido, transacción, autorización, tarjeta y dirección.
+ * Solo incluye a titulares con consentimiento ANALITICA_COMPRAS vigente y no suprimidos.
  */
 export function ejecutarEtlAnalitica(sesion) {
   autorizar(sesion, PERMISOS.PRIVACIDAD_PROCESOS, { recurso: 'analitica' });
@@ -68,10 +69,14 @@ export function ejecutarEtlAnalitica(sesion) {
     for (const f of bdEtl.seleccionar(t)) bdEtl.eliminar(t, f.id);
   }
 
+  const habilitados = titularesHabilitados('ANALITICA_COMPRAS', bdEtl);
+  const suprimidos = new Set(bdEtl.seleccionar('supresiones').map(s => s.id));
+  const incluir = (userId) => habilitados.has(userId) && !suprimidos.has(huellaSupresion(userId));
+
   const productos = new Map(bdEtl.seleccionar('productos').map(p => [p.id, p]));
   const items = bdEtl.seleccionar('order_items');
   let compras = 0;
-  for (const o of bdEtl.seleccionar('orders', o => o.estado !== 'CANCELADO')) {
+  for (const o of bdEtl.seleccionar('orders', o => o.estado !== 'CANCELADO' && incluir(o.user_id))) {
     const categorias = new Set(items.filter(i => i.order_id === o.id).map(i => productos.get(i.producto_id)?.categoria ?? 'OTRA'));
     const clientePseudo = seudonimoRegistrado('analitica', o.user_id);
     for (const categoria of categorias) {
@@ -88,7 +93,7 @@ export function ejecutarEtlAnalitica(sesion) {
   }
 
   let movimientos = 0;
-  for (const h of bdEtl.seleccionar('historial_puntos')) {
+  for (const h of bdEtl.seleccionar('historial_puntos', x => incluir(x.user_id))) {
     bdEtl.insertar('analitica.movimientos_puntos', {
       id: crypto.randomUUID(),
       cliente_pseudo: seudonimoRegistrado('analitica', h.user_id),
@@ -99,7 +104,7 @@ export function ejecutarEtlAnalitica(sesion) {
     movimientos++;
   }
 
-  registrarAuditoria({ sesion, accion: 'etl:analitica', recurso: 'analitica', resultado: 'PERMITIDO' });
+  registrarAuditoria({ sesion, accion: 'etl:analitica', recurso: 'analitica', resultado: 'EXITO', motivo: `titulares con consentimiento=${habilitados.size}` });
   return { compras, movimientos };
 }
 
@@ -138,32 +143,67 @@ export function anonimizarInvitadosVencidos(sesion, ahora = new Date()) {
   return { anonimizados: vencidos.length };
 }
 
+/** Motivo fundamentado por el que la supresión no puede ejecutarse ahora (o null si procede). */
+export function impedimentoSupresion(userId) {
+  const enCurso = bdApp.seleccionar('orders', o => o.user_id === userId && !['ENTREGADO', 'CANCELADO'].includes(o.estado));
+  if (enCurso.length > 0) {
+    return `La cuenta tiene ${enCurso.length} pedido(s) en curso. Sus datos son necesarios para cumplir el contrato (entrega); podrá solicitar la supresión cuando finalicen.`;
+  }
+  return null;
+}
+
 /**
- * Derecho de supresión del titular. Se elimina lo que no tiene obligación de conservación y
- * se BLOQUEA lo que la ley tributaria exige mantener (facturación).
+ * Derecho de supresión del titular.
+ *  - Elimina: cuenta, contacto, dirección de pedidos, puntos, suscripción, token de pago, sesiones,
+ *    equivalencias de seudónimos y filas analíticas.
+ *  - Revoca todos los consentimientos (el historial queda como prueba, sin datos personales).
+ *  - BLOQUEA (no borra) la facturación y conserva montos/estados de pedidos: obligación tributaria
+ *    de conservar documentos (Código Tributario, art. 17: 6 años).
+ *  - Registra una lápida (HMAC del user_id) para que el ETL y la restauración de respaldos no
+ *    vuelvan a usar sus datos.
  */
 export function suprimirCliente(userId) {
   const usuario = bdApp.obtener('users', userId);
   if (!usuario) throw errores.noEncontrado('Usuario');
+  const impedimento = impedimentoSupresion(userId);
+  if (impedimento) throw errores.conflicto(impedimento);
 
+  const huella = huellaSupresion(userId);
+  if (!bdApp.obtener('supresiones', huella)) bdApp.insertar('supresiones', { id: huella, suprimido_el: new Date().toISOString() });
+  return limpiarDatosTitular(userId);
+}
+
+function limpiarDatosTitular(userId) {
+  revocarTodoPorSupresion(userId); // token de pago, suscripción y filas analíticas
   const pedidos = bdApp.seleccionar('orders', o => o.user_id === userId);
-  if (pedidos.some(o => !['ENTREGADO', 'CANCELADO'].includes(o.estado))) {
-    throw errores.conflicto('La cuenta tiene pedidos en curso; podrá suprimirse cuando finalicen.');
-  }
-
-  if (usuario.token_pago) PaymentVault.revokeToken(usuario.token_pago);
   for (const o of pedidos) bdApp.actualizar('orders', o.id, { direccion_envio_cifrada: null });
   for (const f of bdApp.seleccionar('facturacion', f => f.user_id === userId)) bdApp.actualizar('facturacion', f.id, { bloqueado: true });
   for (const h of bdApp.seleccionar('historial_puntos', h => h.user_id === userId)) bdApp.eliminar('historial_puntos', h.id);
   bdApp.eliminar('loyalty_accounts', userId);
-  for (const s of bdApp.seleccionar('suscripciones_marketing', s => s.user_id === userId)) bdApp.eliminar('suscripciones_marketing', s.id);
-  // Sin la tabla de equivalencias, las reseñas y datos analíticos del titular dejan de ser atribuibles.
+  const pseudo = seudonimo('analitica', userId);
+  for (const t of ['analitica.compras', 'analitica.movimientos_puntos']) {
+    for (const f of bdEtl.seleccionar(t, x => x.cliente_pseudo === pseudo)) bdEtl.eliminar(t, f.id);
+  }
+  // Sin la tabla de equivalencias, las reseñas del titular dejan de ser atribuibles.
   for (const p of bdPrivacidad.seleccionar('pseudo.pseudonimos', p => p.user_id === userId)) bdPrivacidad.eliminar('pseudo.pseudonimos', p.id);
   cerrarTodasLasSesiones(userId);
   bdApp.eliminar('users', userId);
 
   logger.info('cuenta_suprimida', { usuarioId: userId });
-  return { suprimido: true, pedidosConservados: pedidos.length };
+  return { suprimido: true, pedidosConservados: pedidos.length, facturasBloqueadas: bdApp.seleccionar('facturacion', f => f.user_id === userId).length };
+}
+
+/**
+ * Tras restaurar un respaldo anterior, vuelve a aplicar las supresiones registradas: ningún
+ * titular suprimido "revive" por una restauración. Se ejecuta antes de reabrir el servicio.
+ */
+export function reaplicarSupresiones(sesion) {
+  autorizar(sesion, PERMISOS.PRIVACIDAD_PROCESOS, { recurso: 'supresiones' });
+  const suprimidos = new Set(bdApp.seleccionar('supresiones').map(s => s.id));
+  const revividos = bdApp.seleccionar('users', u => suprimidos.has(huellaSupresion(u.id)));
+  for (const u of revividos) limpiarDatosTitular(u.id);
+  registrarAuditoria({ sesion, accion: 'job:reaplicar_supresiones', recurso: 'users', resultado: 'EXITO', motivo: `${revividos.length} titulares` });
+  return { reaplicadas: revividos.length };
 }
 
 /**

@@ -20,7 +20,9 @@ export const FINALIDADES = Object.freeze({
   INDICE: 'indice',         // Índice ciego del email (login sin descifrar)
   RESENAS: 'resenas',       // Seudónimo del autor de reseñas
   ANALITICA: 'analitica',   // Seudónimo en exportaciones analíticas
-  MARKETING: 'marketing'    // Seudónimo enviado a la plataforma de correo
+  MARKETING: 'marketing',   // Seudónimo enviado a la plataforma de correo
+  AUDITORIA: 'auditoria',   // Sello encadenado (HMAC) de cada registro de auditoría
+  VERIFICACION: 'verificacion' // HMAC de los códigos de un solo uso (verificación de identidad)
 });
 
 const VARIABLES = Object.freeze({
@@ -29,7 +31,9 @@ const VARIABLES = Object.freeze({
   [FINALIDADES.INDICE]: 'KEY_HMAC_INDICE',
   [FINALIDADES.RESENAS]: 'KEY_HMAC_RESENAS',
   [FINALIDADES.ANALITICA]: 'KEY_HMAC_ANALITICA',
-  [FINALIDADES.MARKETING]: 'KEY_HMAC_MARKETING'
+  [FINALIDADES.MARKETING]: 'KEY_HMAC_MARKETING',
+  [FINALIDADES.AUDITORIA]: 'KEY_HMAC_AUDITORIA',
+  [FINALIDADES.VERIFICACION]: 'KEY_HMAC_VERIFICACION'
 });
 
 const llaves = new Map();

@@ -1,0 +1,335 @@
+NortiShop — Consentimiento, derechos, auditoría e incidentes (datos sintéticos)
+Integrantes: Catalina Toledo | María Gerónimo | Pablo Lineros | Fabián Salinas
+
+════════════════════════════════════════════════════════════════════════════════
+ 1. Módulo de consentimiento
+════════════════════════════════════════════════════════════════════════════════
+
+▶ Estado por finalidad (Ana aceptó las tres en el registro, cada una por separado)
+┌─────────┬──────────────────────┬────────────┬─────────────────┬──────────────────┬───────────────────────┬──────────┐
+│ (index) │ finalidad            │ estado     │ version_vigente │ version_aceptada │ otorgado              │ revocado │
+├─────────┼──────────────────────┼────────────┼─────────────────┼──────────────────┼───────────────────────┼──────────┤
+│ 0       │ 'MARKETING_EMAIL'    │ 'OTORGADO' │ '2.0'           │ '2.0'            │ '2026-10-30 21:47:54' │ '—'      │
+│ 1       │ 'GUARDAR_MEDIO_PAGO' │ 'OTORGADO' │ '1.0'           │ '1.0'            │ '2026-10-30 21:47:54' │ '—'      │
+│ 2       │ 'ANALITICA_COMPRAS'  │ 'OTORGADO' │ '1.0'           │ '1.0'            │ '2026-10-30 21:47:54' │ '—'      │
+└─────────┴──────────────────────┴────────────┴─────────────────┴──────────────────┴───────────────────────┴──────────┘
+
+▶ Ana revoca MARKETING_EMAIL: efecto inmediato y solo sobre esa finalidad
+  Suscriptores exportables antes: 1
+{
+  "finalidad": "MARKETING_EMAIL",
+  "estado": "REVOCADO",
+  "revocado_el": "2026-10-30T21:47:55.471Z"
+}
+  Suscriptores exportables después: 0
+┌─────────┬──────────────────────┬────────────┬─────────────────┬──────────────────┬───────────────────────┬───────────────────────┐
+│ (index) │ finalidad            │ estado     │ version_vigente │ version_aceptada │ otorgado              │ revocado              │
+├─────────┼──────────────────────┼────────────┼─────────────────┼──────────────────┼───────────────────────┼───────────────────────┤
+│ 0       │ 'MARKETING_EMAIL'    │ 'REVOCADO' │ '2.0'           │ '2.0'            │ '2026-10-30 21:47:54' │ '2026-10-30 21:47:55' │
+│ 1       │ 'GUARDAR_MEDIO_PAGO' │ 'OTORGADO' │ '1.0'           │ '1.0'            │ '2026-10-30 21:47:54' │ '—'                   │
+│ 2       │ 'ANALITICA_COMPRAS'  │ 'OTORGADO' │ '1.0'           │ '1.0'            │ '2026-10-30 21:47:54' │ '—'                   │
+└─────────┴──────────────────────┴────────────┴─────────────────┴──────────────────┴───────────────────────┴───────────────────────┘
+
+▶ El Oficial de Privacidad publica una nueva versión del texto de ANALITICA_COMPRAS
+  ⛔ ACCESO_DENEGADO          ADMINISTRADOR intenta publicar un texto — No tiene permisos para realizar esta operación.
+{
+  "finalidad": "ANALITICA_COMPRAS",
+  "version": "2.0",
+  "consentimientosARenovar": 1
+}
+┌─────────┬──────────────────────┬───────────────────────┬─────────────────┬──────────────────┬───────────────────────┬───────────────────────┐
+│ (index) │ finalidad            │ estado                │ version_vigente │ version_aceptada │ otorgado              │ revocado              │
+├─────────┼──────────────────────┼───────────────────────┼─────────────────┼──────────────────┼───────────────────────┼───────────────────────┤
+│ 0       │ 'MARKETING_EMAIL'    │ 'REVOCADO'            │ '2.0'           │ '2.0'            │ '2026-10-30 21:47:54' │ '2026-10-30 21:47:55' │
+│ 1       │ 'GUARDAR_MEDIO_PAGO' │ 'OTORGADO'            │ '1.0'           │ '1.0'            │ '2026-10-30 21:47:54' │ '—'                   │
+│ 2       │ 'ANALITICA_COMPRAS'  │ 'REQUIERE_RENOVACION' │ '2.0'           │ '1.0'            │ '2026-10-30 21:47:54' │ '—'                   │
+└─────────┴──────────────────────┴───────────────────────┴─────────────────┴──────────────────┴───────────────────────┴───────────────────────┘
+  ⛔ CONFLICTO                Ana intenta aceptar con la versión antigua (1.0) — El texto de esta finalidad cambió. Revise la versión vigente antes de aceptarla.
+  ✔ PERMITIDO  Ana acepta la versión vigente (2.0)
+
+▶ Historial de consentimientos de Ana (solo inserción, sin datos personales)
+┌─────────┬──────────────────────┬────────────┬───────────────┬─────────────────────┬───────────────────────┐
+│ (index) │ finalidad            │ accion     │ version_texto │ canal               │ ocurrido_el           │
+├─────────┼──────────────────────┼────────────┼───────────────┼─────────────────────┼───────────────────────┤
+│ 0       │ 'GUARDAR_MEDIO_PAGO' │ 'OTORGADO' │ '1.0'         │ 'REGISTRO'          │ '2026-10-30 21:47:54' │
+│ 1       │ 'MARKETING_EMAIL'    │ 'OTORGADO' │ '2.0'         │ 'REGISTRO'          │ '2026-10-30 21:47:54' │
+│ 2       │ 'ANALITICA_COMPRAS'  │ 'OTORGADO' │ '1.0'         │ 'REGISTRO'          │ '2026-10-30 21:47:54' │
+│ 3       │ 'MARKETING_EMAIL'    │ 'REVOCADO' │ '2.0'         │ 'CENTRO_PRIVACIDAD' │ '2026-10-30 21:47:55' │
+│ 4       │ 'ANALITICA_COMPRAS'  │ 'RENOVADO' │ '2.0'         │ 'CENTRO_PRIVACIDAD' │ '2026-10-30 21:47:55' │
+└─────────┴──────────────────────┴────────────┴───────────────┴─────────────────────┴───────────────────────┘
+
+▶ Menores de edad: NortiShop no ofrece cuentas a menores
+  ⛔ DATO_INVALIDO            Registro sin declarar mayoría de edad — NortiShop solo ofrece cuentas a personas mayores de 18 años.
+  ⛔ CAMPO_NO_PERMITIDO       Registro enviando fecha de nacimiento — Campos no permitidos por la política de minimización: fecha_nacimiento.
+
+════════════════════════════════════════════════════════════════════════════════
+ 2. Ejercicio de derechos
+════════════════════════════════════════════════════════════════════════════════
+
+▶ Acceso: solicitud, verificación con contraseña + código al correo registrado, copia estructurada
+{
+  "id": "17d0b5f1-b1ea-4b5e-8d55-3b7eb262ff60",
+  "estado": "RECIBIDA",
+  "recibida_el": "2026-10-30T21:47:55.483Z",
+  "plazo_vence_el": "2026-11-29T21:47:55.483Z",
+  "verificacion": {
+    "requiereContrasena": true,
+    "requiereCodigo": true,
+    "codigoEnviadoA": "a***@e***.test"
+  }
+}
+  Correo recibido (simulado): "Tu código para confirmar la solicitud de acceso es 142914. Vence en 10 minutos. Si no hiciste esta solicitud, ignora este mensaje y cambia tu contraseña."
+  ⛔ CREDENCIALES_INVALIDAS   Confirmar con código incorrecto — No fue posible verificar su identidad.
+{
+  "id": "17d0b5f1-b1ea-4b5e-8d55-3b7eb262ff60",
+  "tipo": "ACCESO",
+  "estado": "CERRADA",
+  "resultado": "EJECUTADA",
+  "campos_solicitados": null,
+  "nivel_verificacion": "CLAVE+CODIGO_EMAIL_REGISTRADO",
+  "fundamento": null,
+  "recibida_el": "2026-10-30T21:47:55.483Z",
+  "verificada_el": "2026-10-30T21:47:55.956Z",
+  "evaluada_el": "2026-10-30T21:47:55.956Z",
+  "resuelta_el": "2026-10-30T21:47:55.956Z",
+  "cerrada_el": "2026-10-30T21:47:55.956Z",
+  "plazo_vence_el": "2026-11-29T21:47:55.483Z"
+}
+  Secciones de la copia entregada: formato, tipo, generado_el, titular_id, datos_personales, pedidos, datos_facturacion, nortipuntos, resenas, consentimientos, solicitudes_de_derechos, informacion_del_tratamiento
+{
+  "datos_personales": {
+    "nombre": "Ana Prueba Uno",
+    "email": "ana.prueba@ejemplo.test",
+    "telefono": "+56911112222",
+    "direccion_despacho": "Calle Ficticia 123, Depto 4",
+    "comuna": "Antofagasta",
+    "mayor_de_edad_declarado_el": "2026-10-30T21:47:54.722Z",
+    "cuenta_creada_el": "2026-10-30T21:47:54.723Z",
+    "medio_pago_guardado": {
+      "marca": "VISA",
+      "ultimos_4": "1111"
+    }
+  },
+  "pedidos": [
+    {
+      "id": "b48c2f10-2b1e-429c-ade5-15e9ef8de933",
+      "fecha": "2026-10-30T21:47:55.482Z",
+      "estado": "PAGADO",
+      "total_clp": 24990
+    }
+  ]
+}
+
+▶ Rectificación: dirección inválida rechazada; válida propagada al pedido no despachado
+  ⛔ DATO_INVALIDO            Solicitar teléfono con formato inválido — telefono debe ser un móvil chileno (+56 9 XXXX XXXX).
+  Verificación requerida: {"requiereContrasena":true,"requiereCodigo":false,"codigoEnviadoA":null}
+{
+  "id": "6caa18ca-9d96-4d68-88ed-d8873d05e33a",
+  "tipo": "RECTIFICACION",
+  "estado": "CERRADA",
+  "resultado": "EJECUTADA",
+  "campos_solicitados": [
+    "direccionDespacho",
+    "comuna"
+  ],
+  "nivel_verificacion": "CLAVE",
+  "fundamento": "Actualizado también en: orders.",
+  "recibida_el": "2026-10-30T21:47:55.957Z",
+  "verificada_el": "2026-10-30T21:47:56.191Z",
+  "evaluada_el": "2026-10-30T21:47:56.191Z",
+  "resuelta_el": "2026-10-30T21:47:56.192Z",
+  "cerrada_el": "2026-10-30T21:47:56.192Z",
+  "plazo_vence_el": "2026-11-29T21:47:55.957Z"
+}
+
+▶ Supresión: rechazo fundamentado mientras hay un pedido en curso
+{
+  "id": "de7b2deb-5bf6-4c3d-8d27-e65bf3c22f5d",
+  "tipo": "SUPRESION",
+  "estado": "CERRADA",
+  "resultado": "RECHAZADA",
+  "campos_solicitados": null,
+  "nivel_verificacion": "CLAVE+CODIGO_EMAIL_REGISTRADO",
+  "fundamento": "La cuenta tiene 1 pedido(s) en curso. Sus datos son necesarios para cumplir el contrato (entrega); podrá solicitar la supresión cuando finalicen.",
+  "recibida_el": "2026-10-30T21:47:56.192Z",
+  "verificada_el": "2026-10-30T21:47:56.425Z",
+  "evaluada_el": "2026-10-30T21:47:56.426Z",
+  "resuelta_el": "2026-10-30T21:47:56.426Z",
+  "cerrada_el": "2026-10-30T21:47:56.426Z",
+  "plazo_vence_el": "2026-11-29T21:47:56.192Z"
+}
+
+▶ Supresión ejecutada (Bruno, sin pedidos en curso)
+{
+  "id": "99d2e9f4-e391-4cdc-b18e-0e25825e831d",
+  "tipo": "SUPRESION",
+  "estado": "CERRADA",
+  "resultado": "EJECUTADA",
+  "campos_solicitados": null,
+  "nivel_verificacion": "CLAVE+CODIGO_EMAIL_REGISTRADO",
+  "fundamento": "Datos eliminados. Se conservan bloqueados 0 documento(s) tributario(s) y los montos de 0 pedido(s) por obligación legal (6 años).",
+  "recibida_el": "2026-10-30T21:47:56.426Z",
+  "verificada_el": "2026-10-30T21:47:56.678Z",
+  "evaluada_el": "2026-10-30T21:47:56.678Z",
+  "resuelta_el": "2026-10-30T21:47:56.679Z",
+  "cerrada_el": "2026-10-30T21:47:56.679Z",
+  "plazo_vence_el": "2026-11-29T21:47:56.426Z"
+}
+  ¿Existe aún la cuenta de Bruno? false   Lápidas de supresión: 1
+  ⛔ NO_AUTENTICADO           Bruno intenta usar su sesión anterior — Sesión inválida o expirada.
+
+▶ Seguimiento de solicitudes (Oficial de Privacidad): estados, fechas y plazos, sin datos personales
+  ⛔ ACCESO_DENEGADO          ADMINISTRADOR intenta ver las solicitudes — No tiene permisos para realizar esta operación.
+┌─────────┬─────────────────┬───────────┬─────────────┬───────────────────────┬───────────────────────┬───────────────────────┬─────────┐
+│ (index) │ tipo            │ estado    │ resultado   │ recibida              │ cerrada               │ plazo                 │ vencida │
+├─────────┼─────────────────┼───────────┼─────────────┼───────────────────────┼───────────────────────┼───────────────────────┼─────────┤
+│ 0       │ 'ACCESO'        │ 'CERRADA' │ 'EJECUTADA' │ '2026-10-30 21:47:55' │ '2026-10-30 21:47:55' │ '2026-11-29 21:47:55' │ false   │
+│ 1       │ 'RECTIFICACION' │ 'CERRADA' │ 'EJECUTADA' │ '2026-10-30 21:47:55' │ '2026-10-30 21:47:56' │ '2026-11-29 21:47:55' │ false   │
+│ 2       │ 'SUPRESION'     │ 'CERRADA' │ 'RECHAZADA' │ '2026-10-30 21:47:56' │ '2026-10-30 21:47:56' │ '2026-11-29 21:47:56' │ false   │
+│ 3       │ 'SUPRESION'     │ 'CERRADA' │ 'EJECUTADA' │ '2026-10-30 21:47:56' │ '2026-10-30 21:47:56' │ '2026-11-29 21:47:56' │ false   │
+└─────────┴─────────────────┴───────────┴─────────────┴───────────────────────┴───────────────────────┴───────────────────────┴─────────┘
+
+════════════════════════════════════════════════════════════════════════════════
+ 3. Registro de auditoría
+════════════════════════════════════════════════════════════════════════════════
+
+▶ Últimos eventos (identificadores internos, sin datos personales, encadenados con HMAC)
+┌─────────┬─────┬──────────────────┬─────────────────────────────────────┬─────────────────┬──────────────────────────────────┬────────────┬──────────────────────────────────────┬──────────────┐
+│ (index) │ sec │ categoria        │ accion                              │ rol             │ recurso                          │ resultado  │ motivo                               │ hash         │
+├─────────┼─────┼──────────────────┼─────────────────────────────────────┼─────────────────┼──────────────────────────────────┼────────────┼──────────────────────────────────────┼──────────────┤
+│ 0       │ 32  │ 'DERECHOS'       │ 'derechos:acceso:verificada'        │ 'CLIENTE'       │ 'solicitud:17d0b5f1-b1ea-4b5e-8' │ 'EXITO'    │ ''                                   │ 'b948d60093' │
+│ 1       │ 33  │ 'EXPORTACION'    │ 'derechos:acceso:ejecutada'         │ 'CLIENTE'       │ 'solicitud:17d0b5f1-b1ea-4b5e-8' │ 'EXITO'    │ 'formato=nortishop.export.v1; pedid' │ '0070f5188f' │
+│ 2       │ 34  │ 'DERECHOS'       │ 'derechos:rectificacion:recibida'   │ 'CLIENTE'       │ 'solicitud:6caa18ca-9d96-4d68-8' │ 'EXITO'    │ 'campos=direccionDespacho,comuna'    │ 'b0e66af04c' │
+│ 3       │ 35  │ 'DERECHOS'       │ 'derechos:rectificacion:verificada' │ 'CLIENTE'       │ 'solicitud:6caa18ca-9d96-4d68-8' │ 'EXITO'    │ ''                                   │ 'f4a00c772c' │
+│ 4       │ 36  │ 'MODIFICACION'   │ 'derechos:rectificacion:ejecutada'  │ 'CLIENTE'       │ 'solicitud:6caa18ca-9d96-4d68-8' │ 'EXITO'    │ 'campos=direccionDespacho,comuna; p' │ 'fc496fb6b3' │
+│ 5       │ 37  │ 'DERECHOS'       │ 'derechos:supresion:recibida'       │ 'CLIENTE'       │ 'solicitud:de7b2deb-5bf6-4c3d-8' │ 'EXITO'    │ ''                                   │ 'ac6977aadd' │
+│ 6       │ 38  │ 'DERECHOS'       │ 'derechos:supresion:verificada'     │ 'CLIENTE'       │ 'solicitud:de7b2deb-5bf6-4c3d-8' │ 'EXITO'    │ ''                                   │ '1a3fcb841c' │
+│ 7       │ 39  │ 'DERECHOS'       │ 'derechos:supresion:rechazada'      │ 'CLIENTE'       │ 'solicitud:de7b2deb-5bf6-4c3d-8' │ 'FALLIDO'  │ 'La cuenta tiene 1 pedido(s) en cur' │ 'f24efc3aab' │
+│ 8       │ 40  │ 'DERECHOS'       │ 'derechos:supresion:recibida'       │ 'CLIENTE'       │ 'solicitud:99d2e9f4-e391-4cdc-b' │ 'EXITO'    │ ''                                   │ '0e7a897488' │
+│ 9       │ 41  │ 'DERECHOS'       │ 'derechos:supresion:verificada'     │ 'CLIENTE'       │ 'solicitud:99d2e9f4-e391-4cdc-b' │ 'EXITO'    │ ''                                   │ '1c0f986476' │
+│ 10      │ 42  │ 'SUPRESION'      │ 'derechos:supresion:ejecutada'      │ 'CLIENTE'       │ 'solicitud:99d2e9f4-e391-4cdc-b' │ 'EXITO'    │ 'Datos eliminados. Se conservan blo' │ '39549f43a8' │
+│ 11      │ 43  │ 'CONTROL_ACCESO' │ 'derechos:gestionar'                │ 'ADMINISTRADOR' │ 'solicitudes_derechos'           │ 'DENEGADO' │ 'ROL_SIN_PERMISO'                    │ '7932787f80' │
+└─────────┴─────┴──────────────────┴─────────────────────────────────────┴─────────────────┴──────────────────────────────────┴────────────┴──────────────────────────────────────┴──────────────┘
+  ⛔ ACCESO_DENEGADO          CLIENTE intenta consultar la auditoría — No tiene permisos para realizar esta operación.
+  ⛔ BD_PERMISO_DENEGADO La aplicación intenta borrar un registro: permiso denegado para svc_app: D en audit_log
+
+▶ Verificación de la cadena: íntegra → un atacante modifica el registro 4 → detectado
+{
+  "integra": true,
+  "registros": 45,
+  "ultimaSecuencia": 45,
+  "problemas": []
+}
+{
+  "integra": false,
+  "registros": 46,
+  "ultimaSecuencia": 46,
+  "problemas": [
+    {
+      "secuencia": 4,
+      "problema": "El contenido del registro fue modificado."
+    }
+  ]
+}
+
+════════════════════════════════════════════════════════════════════════════════
+ 4. Detección y respuesta a incidentes
+════════════════════════════════════════════════════════════════════════════════
+
+▶ Detección: un agente de soporte revela datos completos 5 veces en una hora
+┌─────────┬─────────────────────────────┬─────────────────────┬───────────┬────────────────────────┬───────────┐
+│ (index) │ regla                       │ nivel               │ severidad │ sujeto                 │ estado    │
+├─────────┼─────────────────────────────┼─────────────────────┼───────────┼────────────────────────┼───────────┤
+│ 0       │ 'REVELACIONES_PII_ANOMALAS' │ 'EVENTO_SOSPECHOSO' │ 'ALTA'    │ '2b2ac514-7780-4089-a' │ 'ABIERTA' │
+│ 1       │ 'FUERZA_BRUTA'              │ 'ALERTA'            │ 'MEDIA'   │ 'cuenta:e5a5e913d026'  │ 'ABIERTA' │
+└─────────┴─────────────────────────────┴─────────────────────┴───────────┴────────────────────────┴───────────┘
+
+▶ Análisis → evidencia → contención
+  ⛔ CONFLICTO                Contener sin preservar evidencia — Preserve la evidencia antes de ejecutar acciones de contención.
+{
+  "sha256": "05f91f115e4e8fc4ec1695b1dad779bd2a4d76fd5177718692044e7deeb1f47a",
+  "eventos": 37,
+  "cadenaIntegra": true
+}
+  ✔ PERMITIDO  Suspender el rol SOPORTE
+  ✔ PERMITIDO  Deshabilitar la cuenta de soporte comprometida
+  ⛔ NO_AUTENTICADO           Soporte intenta seguir buscando clientes — Sesión inválida o expirada.
+
+▶ Erradicación → recuperación (con comprobaciones) → notificación → cierre
+  ⛔ ACCESO_DENEGADO          SEGURIDAD intenta restablecer la operación — No tiene permisos para realizar esta operación.
+  ⛔ CONFLICTO                ADMINISTRADOR intenta restablecer con una alerta crítica abierta — No se puede restablecer la operación. Comprobaciones pendientes: Sin alertas críticas abiertas sin revisar.
+[
+  {
+    "control": "Auditoría íntegra",
+    "ok": true
+  },
+  {
+    "control": "Saldos de NortiPuntos íntegros",
+    "ok": true
+  },
+  {
+    "control": "Sin alertas críticas abiertas sin revisar",
+    "ok": true
+  },
+  {
+    "control": "Causa raíz documentada",
+    "ok": true
+  }
+]
+{
+  "notificarAgencia": true,
+  "notificarTitulares": false,
+  "comunicacionRecomendada": false,
+  "fundamentos": [
+    "Hay datos personales comprometidos con riesgo razonable para los derechos de los titulares: corresponde informar a la Agencia de Protección de Datos Personales sin dilaciones indebidas."
+  ]
+}
+{
+  "descripcion": "Revelación masiva de datos por cuenta de soporte",
+  "fecha_deteccion": "2026-10-30T21:48:02.665Z",
+  "periodo": "2026-10-30T20:48:02.665Z a en investigación",
+  "datos_afectados": [
+    "nombre e identificador de cuenta",
+    "correo electrónico y teléfono",
+    "dirección de despacho"
+  ],
+  "titulares_afectados": 1,
+  "posibles_consecuencias": [
+    "suplantación de identidad o correos fraudulentos dirigidos (phishing)",
+    "correos o llamadas fraudulentas que usen el nombre de NortiShop",
+    "exposición del domicilio"
+  ],
+  "medidas_adoptadas": [
+    "suspender rol",
+    "deshabilitar cuenta personal"
+  ],
+  "recomendaciones": [
+    "Desconfíe de mensajes que pidan datos o pagos a nombre de NortiShop."
+  ],
+  "contacto": "privacidad@nortishop.test (Oficial de Privacidad)"
+}
+┌─────────┬────────────────┬───────────────────────────────────────────┬───────────────────────┬──────────────────────────────────────────────────────┐
+│ (index) │ fase           │ accion                                    │ cuando                │ detalle                                              │
+├─────────┼────────────────┼───────────────────────────────────────────┼───────────────────────┼──────────────────────────────────────────────────────┤
+│ 0       │ 'DETECCION'    │ 'abierto'                                 │ '2026-10-30 21:48:02' │ 'severidad=ALTA; alertas=1'                          │
+│ 1       │ 'ANALISIS'     │ 'alcance_evaluado'                        │ '2026-10-30 21:48:02' │ 'tipos=IDENTIFICACION,CONTACTO,DIRECCION; titulares' │
+│ 2       │ 'CONTENCION'   │ 'evidencia_preservada'                    │ '2026-10-30 21:48:02' │ 'sha256=05f91f115e4e8fc4; cadena_integra=true'       │
+│ 3       │ 'CONTENCION'   │ 'contencion:suspender_rol'                │ '2026-10-30 21:48:02' │ 'objetivo=SOPORTE'                                   │
+│ 4       │ 'CONTENCION'   │ 'contencion:deshabilitar_cuenta_personal' │ '2026-10-30 21:48:02' │ 'objetivo=2b2ac514-7780-4089-a9b1-32e797efe5b2'      │
+│ 5       │ 'ERRADICACION' │ 'causa_eliminada'                         │ '2026-10-30 21:48:02' │ 'Cambio de credenciales y MFA obligatorio para sopo' │
+│ 6       │ 'RECUPERACION' │ 'operacion_restablecida'                  │ '2026-10-30 21:48:02' │ 'Auditoría íntegra: OK; Saldos de NortiPuntos ínteg' │
+│ 7       │ 'NOTIFICACION' │ 'decision_notificacion'                   │ '2026-10-30 21:48:02' │ 'agencia=true; titulares=true; Se informa a la Agen' │
+│ 8       │ 'CIERRE'       │ 'cerrado'                                 │ '2026-10-30 21:48:02' │ 'MFA obligatorio y revisión trimestral de accesos d' │
+└─────────┴────────────────┴───────────────────────────────────────────┴───────────────────────┴──────────────────────────────────────────────────────┘
+
+════════════════════════════════════════════════════════════════════════════════
+ 5. Los controles no se pueden eludir
+════════════════════════════════════════════════════════════════════════════════
+  ⛔ ACCESO_DENEGADO          Cliente llama a la contención directamente — No tiene permisos para realizar esta operación.
+  ⛔ ACCESO_DENEGADO          Cliente revoca el consentimiento de otro cliente — No tiene permisos para realizar esta operación.
+  ⛔ NO_AUTENTICADO           Llamada sin sesión a la exportación de derechos — Sesión inválida o expirada.
+  ⛔ BD_PERMISO_DENEGADO Acceso directo a la BD con svc_app: permiso denegado para svc_app: S en audit_log
+  ⛔ BD_PERMISO_DENEGADO Acceso directo a la BD con rol_analista: permiso denegado para rol_analista: S en consentimientos
+
+Demostración finalizada. Ejecute npm test para la batería completa o npm run servidor para abrir el Centro de privacidad.
+

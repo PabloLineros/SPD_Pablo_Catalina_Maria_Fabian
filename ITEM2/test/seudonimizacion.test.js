@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { API } from '../src/api.js';
 import { DB, ROLES_BD } from '../src/db/repository.js';
 import { seudonimo } from '../src/crypto/pseudonymization.js';
-import { prepararEscenario, ok, PASSWORD_PRUEBA, TARJETA_VISA } from '../src/dev/escenario.js';
+import { prepararEscenario, ok, ejercerDerecho, PASSWORD_PRUEBA, TARJETA_VISA } from '../src/dev/escenario.js';
 
 test('Reseñas: autor seudonimizado; la vista pública solo muestra alias', async () => {
   const { tokens, ids } = await prepararEscenario();
@@ -61,11 +61,12 @@ test('Anonimización k=5: grupos con menos de 5 clientes se suprimen del reporte
   const { tokens, ids } = await prepararEscenario();
   for (let i = 0; i < 5; i++) {
     const email = `k${i}@ejemplo.test`;
-    ok(await API.auth.registrar({ nombre: `Cliente K ${i}`, email, password: PASSWORD_PRUEBA, direccionDespacho: `Calle K ${i}`, comuna: 'Antofagasta' }));
+    ok(await API.auth.registrar({ nombre: `Cliente K ${i}`, email, password: PASSWORD_PRUEBA, direccionDespacho: `Calle K ${i}`, comuna: 'Antofagasta', declaraMayorDeEdad: true, aceptaAnalitica: true }));
     const { token } = ok(await API.auth.iniciarSesion({ email, password: PASSWORD_PRUEBA }));
     ok(await API.cliente.crearPedido(token, { items: [{ productoId: ids.productos[1], cantidad: 1 }], tarjeta: TARJETA_VISA }));
   }
-  // Un único cliente en Calama: su grupo debe quedar oculto.
+  // Un único cliente en Calama (con consentimiento de analítica): su grupo debe quedar oculto.
+  ok(await API.consentimiento.otorgar(tokens.clienteB, ids.clienteB, { finalidad: 'ANALITICA_COMPRAS', version: '1.0' }));
   ok(await API.cliente.crearPedido(tokens.clienteB, { items: [{ productoId: ids.productos[1], cantidad: 1 }], tarjeta: TARJETA_VISA }));
   ok(await API.privacidad.ejecutarEtl(tokens.privacidad));
 
@@ -109,11 +110,15 @@ test('Supresión: elimina PII y equivalencias, bloquea facturación y conserva p
   }));
   ok(await API.cliente.publicarResena(tokens.clienteA, { productoId: ids.productos[0], calificacion: 4, alias: 'ana_p' }));
 
-  assert.equal((await API.cliente.suprimirCuenta(tokens.clienteA, ids.clienteA)).error.codigo, 'CONFLICTO', 'pedido en curso');
+  const email = 'ana.prueba@ejemplo.test';
+  const rechazada = ok(await ejercerDerecho(tokens.clienteA, ids.clienteA, { tipo: 'SUPRESION' }, { emailCodigo: email }));
+  assert.equal(rechazada.solicitud.resultado, 'RECHAZADA', 'pedido en curso');
+  assert.match(rechazada.solicitud.fundamento, /pedido\(s\) en curso/);
   const ref = ok(await API.logistica.pendientes(tokens.logistica))[0].ref_envio;
   ok(await API.logistica.actualizarEstado(tokens.logistica, ref, 'EN_RUTA'));
   ok(await API.logistica.actualizarEstado(tokens.logistica, ref, 'ENTREGADO'));
-  ok(await API.cliente.suprimirCuenta(tokens.clienteA, ids.clienteA));
+  const ejecutada = ok(await ejercerDerecho(tokens.clienteA, ids.clienteA, { tipo: 'SUPRESION' }, { emailCodigo: email }));
+  assert.equal(ejecutada.solicitud.resultado, 'EJECUTADA');
 
   const bd = DB.simularAccesoFisico();
   assert.equal(bd.users.some(u => u.id === ids.clienteA), false);

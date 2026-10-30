@@ -12,12 +12,12 @@ const { tokens, ids } = await prepararEscenario();
 ok(await API.cliente.crearPedido(tokens.clienteA, { items: [{ productoId: ids.productos[0], cantidad: 1 }] }));
 const ref = ok(await API.logistica.pendientes(tokens.logistica))[0].ref_envio;
 
-const TODOS = ['admin', 'privacidad', 'soporte', 'logistica', 'catalogo', 'marketing', 'analista', 'clienteA'];
+const TODOS = ['admin', 'privacidad', 'seguridad', 'soporte', 'logistica', 'catalogo', 'marketing', 'analista', 'clienteA'];
 
 /** [descripción, llamada, roles con acceso permitido] */
 const CASOS = [
   ['Gestionar roles (crear personal)', (t, i) => API.admin.crearPersonal(t, { nombre: 'Nuevo Personal', email: `n${i}@nortishop.test`, password: PASSWORD_PRUEBA, rol: 'SOPORTE' }), ['admin']],
-  ['Leer auditoría', (t) => API.admin.auditoria(t), ['admin', 'privacidad']],
+  ['Leer auditoría', (t) => API.admin.auditoria(t), ['admin', 'privacidad', 'seguridad']],
   ['Buscar cliente (enmascarado)', (t) => API.soporte.buscarCliente(t, 'ana.prueba@ejemplo.test'), ['admin', 'soporte']],
   ['Revelar PII de un cliente', (t) => API.soporte.revelarDatosContacto(t, ids.clienteA, { ticket: 'TCK-1001', motivo: 'Cliente reporta pedido no recibido' }), ['soporte']],
   ['Listar pedidos de todos', (t) => API.pedidos.listar(t), ['admin', 'soporte']],
@@ -55,7 +55,8 @@ test('Cliente no puede leer, modificar ni suprimir datos de otro cliente', async
   assert.equal((await API.cliente.misPedidos(tokens.clienteB, ids.clienteA)).error.codigo, 'ACCESO_DENEGADO');
   assert.equal((await API.cliente.saldoPuntos(tokens.clienteB, ids.clienteA)).error.codigo, 'ACCESO_DENEGADO');
   assert.equal((await API.cliente.actualizarPerfil(tokens.clienteB, ids.clienteA, { comuna: 'X' })).error.codigo, 'ACCESO_DENEGADO');
-  assert.equal((await API.cliente.suprimirCuenta(tokens.clienteB, ids.clienteA)).error.codigo, 'ACCESO_DENEGADO');
+  assert.equal((await API.derechos.solicitar(tokens.clienteB, ids.clienteA, { tipo: 'SUPRESION' })).error.codigo, 'ACCESO_DENEGADO');
+  assert.equal((await API.consentimiento.revocar(tokens.clienteB, ids.clienteA, { finalidad: 'MARKETING_EMAIL' })).error.codigo, 'ACCESO_DENEGADO');
   assert.equal(ok(await API.cliente.verPerfil(tokens.clienteB, ids.clienteB)).id, ids.clienteB);
 });
 

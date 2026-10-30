@@ -16,6 +16,7 @@
 const T = {
   uuid: (v) => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(v),
   texto: (v) => typeof v === 'string' && v.length <= 1000,
+  json: (v) => typeof v === 'string' && v.length <= 5_000_000 && (() => { try { JSON.parse(v); return true; } catch { return false; } })(),
   cifrado: (v) => typeof v === 'string' && /^[0-9a-f]{24}:[0-9a-f]{32}:([0-9a-f]{2})*$/.test(v),
   hmac: (v) => typeof v === 'string' && /^[0-9a-f]{64}$/.test(v),
   bcrypt: (v) => typeof v === 'string' && /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(v),
@@ -52,6 +53,7 @@ export const ESQUEMA = Object.freeze({
       token_pago: col('texto'),
       tarjeta_last4: col('last4'),
       tarjeta_marca: col('texto'),
+      mayor_edad_declarado_el: col('fecha', R), // Solo la declaración y su fecha, nunca la fecha de nacimiento
       created_at: col('fecha', R)
     }
   },
@@ -63,7 +65,7 @@ export const ESQUEMA = Object.freeze({
       email_cifrado: col('cifrado', R),
       email_hmac: col('hmac', R),
       password_hash: col('bcrypt', R),
-      rol: col('texto', { req: true, valores: ['ADMINISTRADOR', 'OFICIAL_PRIVACIDAD', 'SOPORTE', 'LOGISTICA', 'CATALOGO', 'MARKETING', 'ANALISTA'] }),
+      rol: col('texto', { req: true, valores: ['ADMINISTRADOR', 'OFICIAL_PRIVACIDAD', 'SEGURIDAD', 'SOPORTE', 'LOGISTICA', 'CATALOGO', 'MARKETING', 'ANALISTA'] }),
       activo: col('bool', R),
       created_at: col('fecha', R)
     }
@@ -135,13 +137,116 @@ export const ESQUEMA = Object.freeze({
       comentario: col('texto'), created_at: col('fecha', R)
     }
   },
+  // Lista de envío: existe una fila solo mientras el consentimiento MARKETING_EMAIL está vigente.
+  // La prueba del consentimiento (fecha, versión, estado) vive en el módulo de consentimiento.
   suscripciones_marketing: {
-    unicos: ['token_desuscripcion'],
+    unicos: ['token_desuscripcion', 'user_id'],
     columnas: {
-      id: col('uuid', R), user_id: col('uuid'), suscriptor_pseudo: col('hmac'),
-      email_cifrado: col('cifrado', R), consentimiento_otorgado_el: col('fecha', R),
-      version_texto: col('texto', R), revocado_el: col('fecha'),
-      token_desuscripcion: col('uuid', R)
+      id: col('uuid', R), user_id: col('uuid', R), suscriptor_pseudo: col('hmac', R),
+      email_cifrado: col('cifrado', R), token_desuscripcion: col('uuid', R)
+    }
+  },
+  textos_consentimiento: {
+    columnas: {
+      id: col('texto', R), finalidad: col('texto', R), version: col('texto', R),
+      texto: col('texto', R), texto_sha256: col('hmac', R), vigente_desde: col('fecha', R)
+    }
+  },
+  // Estado ACTUAL por titular y finalidad (una fila por par).
+  consentimientos: {
+    columnas: {
+      id: col('texto', R), user_id: col('uuid', R), finalidad: col('texto', R),
+      estado: col('texto', { req: true, valores: ['OTORGADO', 'REVOCADO'] }),
+      version_texto: col('texto', R), otorgado_el: col('fecha'), revocado_el: col('fecha'),
+      actualizado_el: col('fecha', R)
+    }
+  },
+  // Historial de cambios de estado: solo inserción (prueba del consentimiento y trazabilidad).
+  consentimientos_historial: {
+    columnas: {
+      id: col('uuid', R), user_id: col('uuid', R), finalidad: col('texto', R),
+      accion: col('texto', { req: true, valores: ['OTORGADO', 'REVOCADO', 'RENOVADO'] }),
+      version_texto: col('texto', R),
+      canal: col('texto', { req: true, valores: ['REGISTRO', 'CENTRO_PRIVACIDAD', 'ENLACE_CORREO', 'SUPRESION'] }),
+      ocurrido_el: col('fecha', R)
+    }
+  },
+  solicitudes_derechos: {
+    columnas: {
+      id: col('uuid', R), user_id: col('uuid', R),
+      tipo: col('texto', { req: true, valores: ['ACCESO', 'PORTABILIDAD', 'RECTIFICACION', 'SUPRESION'] }),
+      estado: col('texto', { req: true, valores: ['RECIBIDA', 'VERIFICADA', 'EN_EVALUACION', 'CERRADA', 'ANULADA'] }),
+      resultado: col('texto', { valores: ['EJECUTADA', 'RECHAZADA'] }),
+      nivel_verificacion: col('texto', R),
+      campos_solicitados: col('texto'),          // nombres de campos a rectificar, nunca sus valores
+      cambios_cifrados: col('cifrado'),          // valores propuestos, cifrados; se borran al ejecutar
+      fundamento: col('texto'),
+      recibida_el: col('fecha', R), verificada_el: col('fecha'), evaluada_el: col('fecha'),
+      resuelta_el: col('fecha'), cerrada_el: col('fecha'), plazo_vence_el: col('fecha', R)
+    }
+  },
+  verificaciones: {
+    columnas: {
+      id: col('uuid', R), solicitud_id: col('uuid', R), codigo_hmac: col('hmac', R),
+      destino: col('texto', { req: true, valores: ['EMAIL_REGISTRADO', 'EMAIL_NUEVO', 'SOLO_CONTRASENA'] }),
+      expira_el: col('fecha', R), intentos: col('entero', R), usado: col('bool', R)
+    }
+  },
+  // Lápidas de supresión: HMAC del user_id, sin datos personales. Sirven para que ningún proceso
+  // (ETL, restauración de respaldos) vuelva a usar los datos de un titular suprimido.
+  supresiones: {
+    columnas: { id: col('hmac', R), suprimido_el: col('fecha', R) }
+  },
+  auditoria_anclas: {
+    columnas: { id: col('uuid', R), secuencia: col('entero', R), hash: col('hmac', R), created_at: col('fecha', R) }
+  },
+  auditoria_purgas: {
+    columnas: {
+      id: col('uuid', R), hasta_secuencia: col('entero', R), hash_ultimo: col('hmac', R),
+      filas: col('entero', R), ejecutada_el: col('fecha', R), actor_id: col('texto', R)
+    }
+  },
+  alertas: {
+    columnas: {
+      id: col('uuid', R), regla: col('texto', R),
+      nivel: col('texto', { req: true, valores: ['ALERTA', 'EVENTO_SOSPECHOSO'] }),
+      severidad: col('texto', { req: true, valores: ['BAJA', 'MEDIA', 'ALTA', 'CRITICA'] }),
+      sujeto: col('texto', R), detalle: col('texto', R),
+      estado: col('texto', { req: true, valores: ['ABIERTA', 'DESCARTADA', 'ESCALADA'] }),
+      incidente_id: col('uuid'), created_at: col('fecha', R)
+    }
+  },
+  incidentes: {
+    columnas: {
+      id: col('uuid', R), titulo: col('texto', R),
+      severidad: col('texto', { req: true, valores: ['BAJA', 'MEDIA', 'ALTA', 'CRITICA'] }),
+      estado: col('texto', { req: true, valores: ['EN_ANALISIS', 'CONTENIDO', 'ERRADICADO', 'RECUPERADO', 'CERRADO', 'DESCARTADO'] }),
+      detectado_el: col('fecha', R), ocurrido_desde: col('fecha'), ocurrido_hasta: col('fecha'),
+      tipos_datos: col('texto'), titulares_afectados: col('entero'),
+      evidencia_preservada: col('bool', R),
+      decision_notificacion: col('texto'), notificacion_autorizada_por: col('texto'),
+      notificado_agencia_el: col('fecha'), notificado_titulares_el: col('fecha'),
+      causa_raiz: col('texto'), lecciones: col('texto'), cerrado_el: col('fecha'),
+      responsable_id: col('texto', R)
+    }
+  },
+  incidente_acciones: {
+    columnas: {
+      id: col('uuid', R), incidente_id: col('uuid', R),
+      fase: col('texto', { req: true, valores: ['DETECCION', 'ANALISIS', 'CONTENCION', 'ERRADICACION', 'RECUPERACION', 'NOTIFICACION', 'CIERRE'] }),
+      accion: col('texto', R), detalle: col('texto'), actor_id: col('texto', R), created_at: col('fecha', R)
+    }
+  },
+  evidencias: {
+    columnas: {
+      id: col('uuid', R), incidente_id: col('uuid', R), tipo: col('texto', R),
+      contenido: col('json', R), sha256: col('hmac', R), created_at: col('fecha', R)
+    }
+  },
+  // Controles de contención activables durante un incidente (p. ej. suspender un rol).
+  controles_operacion: {
+    columnas: {
+      id: col('texto', R), activo: col('bool', R), incidente_id: col('uuid'), actualizado_el: col('fecha', R)
     }
   },
   envios: {
@@ -161,11 +266,15 @@ export const ESQUEMA = Object.freeze({
       rol: col('texto', R), expira_el: col('fecha', R), created_at: col('fecha', R)
     }
   },
+  // secuencia, hash_previo y hash los completa el disparador de la BD (no quien inserta).
   audit_log: {
+    pk: 'secuencia',
     columnas: {
-      id: col('uuid', R), actor_id: col('texto', R), actor_rol: col('texto', R),
-      accion: col('texto', R), recurso: col('texto'), resultado: col('texto', { req: true, valores: ['PERMITIDO', 'DENEGADO'] }),
-      motivo: col('texto'), created_at: col('fecha', R)
+      secuencia: col('entero', R), id: col('uuid', R), created_at: col('fecha', R),
+      actor_id: col('texto', R), actor_rol: col('texto', R),
+      accion: col('texto', R), categoria: col('texto', R), recurso: col('texto'),
+      resultado: col('texto', { req: true, valores: ['PERMITIDO', 'DENEGADO', 'EXITO', 'FALLIDO'] }),
+      motivo: col('texto'), hash_previo: col('hmac', R), hash: col('hmac', R)
     }
   },
   'pseudo.pseudonimos': {
@@ -196,24 +305,38 @@ export const ROLES_BD = Object.freeze({
   SVC_ETL: 'svc_etl',               // Carga seudonimizada hacia analitica.*
   ROL_ANALISTA: 'rol_analista',     // Solo esquema analitica
   ROL_MARKETING: 'rol_marketing',   // Solo v_export_marketing
-  ROL_PUBLICO: 'rol_publico'        // Solo v_resenas_publicas
+  ROL_PUBLICO: 'rol_publico',       // Solo v_resenas_publicas
+  ROL_AUDITOR: 'rol_auditor',       // Solo lectura de la auditoría (nadie más puede leerla)
+  SVC_RETENCION: 'svc_retencion',   // Única que puede borrar auditoría vencida (con constancia)
+  SVC_SEGURIDAD: 'svc_seguridad'    // Alertas, incidentes, evidencias y controles de contención
 });
 
 // S = SELECT, I = INSERT, U = UPDATE, D = DELETE. Lo no listado está denegado.
+// audit_log: la aplicación solo INSERTA; nadie tiene UPDATE; DELETE solo svc_retencion.
 const GRANTS = Object.freeze({
   [ROLES_BD.SVC_APP]: {
     productos: 'SIU', users: 'SIUD', personal: 'SIU', facturacion: 'SIU', orders: 'SIU', order_items: 'SI',
     orders_invitado: 'SIU', loyalty_accounts: 'SIUD', historial_puntos: 'SID', resenas: 'I',
-    suscripciones_marketing: 'SIUD', envios: 'SIU', sesiones: 'SID', audit_log: 'SI'
+    suscripciones_marketing: 'SIUD', envios: 'SIU', sesiones: 'SID', audit_log: 'I',
+    textos_consentimiento: 'SI', consentimientos: 'SIU', consentimientos_historial: 'SI',
+    solicitudes_derechos: 'SIU', verificaciones: 'SIU', supresiones: 'SI',
+    alertas: 'I', controles_operacion: 'S'
   },
-  [ROLES_BD.SVC_PRIVACIDAD]: { 'pseudo.pseudonimos': 'SID', orders_invitado: 'SU' },
+  [ROLES_BD.SVC_PRIVACIDAD]: { 'pseudo.pseudonimos': 'SID', orders_invitado: 'SU', resenas: 'S' },
   [ROLES_BD.SVC_ETL]: {
-    orders: 'S', order_items: 'S', productos: 'S', historial_puntos: 'S',
+    orders: 'S', order_items: 'S', productos: 'S', historial_puntos: 'S', supresiones: 'S',
+    consentimientos: 'S', textos_consentimiento: 'S',
     'analitica.compras': 'SID', 'analitica.movimientos_puntos': 'SID'
   },
   [ROLES_BD.ROL_ANALISTA]: { 'analitica.compras': 'S', 'analitica.movimientos_puntos': 'S' },
   [ROLES_BD.ROL_MARKETING]: {},
-  [ROLES_BD.ROL_PUBLICO]: {}
+  [ROLES_BD.ROL_PUBLICO]: {},
+  [ROLES_BD.ROL_AUDITOR]: { audit_log: 'S', auditoria_anclas: 'S', auditoria_purgas: 'S' },
+  [ROLES_BD.SVC_RETENCION]: { audit_log: 'D', auditoria_purgas: 'I' },
+  [ROLES_BD.SVC_SEGURIDAD]: {
+    alertas: 'SU', incidentes: 'SIU', incidente_acciones: 'SI', evidencias: 'SI',
+    controles_operacion: 'SIU', auditoria_anclas: 'I'
+  }
 });
 
 const GRANTS_VISTAS = Object.freeze({
@@ -232,6 +355,7 @@ const copiar = (fila) => (fila ? structuredClone(fila) : null);
 
 class MotorBD {
   constructor() {
+    this.disparadores = new Map(); // tabla -> fn(fila, ultimaFila) que completa la fila antes de insertarla
     this.reiniciar();
   }
 
@@ -289,6 +413,11 @@ class Conexion {
 
   insertar(tabla, fila) {
     this.#exigir(tabla, 'I');
+    const disparador = this.motor.disparadores.get(tabla);
+    if (disparador) {
+      const filas = [...this.motor.tablas.get(tabla).values()];
+      fila = disparador({ ...fila }, filas[filas.length - 1] ?? null);
+    }
     this.motor.validarFila(tabla, fila);
     const pk = fila[ESQUEMA[tabla].pk ?? 'id'];
     if (this.motor.tablas.get(tabla).has(pk)) throw errorBD('BD_UNICO', `Clave primaria duplicada en ${tabla}.`);
@@ -346,8 +475,16 @@ class Conexion {
         }));
     }
     if (nombre === 'v_export_marketing') {
+      // Defensa en profundidad: además de existir la suscripción, el consentimiento debe estar
+      // OTORGADO sobre la versión VIGENTE del texto de MARKETING_EMAIL.
+      const versiones = t('textos_consentimiento').filter(x => x.finalidad === 'MARKETING_EMAIL')
+        .sort((a, b) => a.vigente_desde.localeCompare(b.vigente_desde));
+      const vigente = versiones[versiones.length - 1]?.version;
+      const habilitados = new Set(t('consentimientos')
+        .filter(c => c.finalidad === 'MARKETING_EMAIL' && c.estado === 'OTORGADO' && c.version_texto === vigente)
+        .map(c => c.user_id));
       return t('suscripciones_marketing')
-        .filter(s => s.revocado_el === null || s.revocado_el === undefined)
+        .filter(s => habilitados.has(s.user_id))
         .map(s => ({ suscriptor_pseudo: s.suscriptor_pseudo, email_cifrado: s.email_cifrado, id: s.id, token_desuscripcion: s.token_desuscripcion }));
     }
     if (nombre === 'analitica.v_ventas_por_comuna') {
@@ -376,6 +513,11 @@ class BaseDeDatos {
     return new Conexion(this.#motor, rol);
   }
 
+  /** Registra un disparador BEFORE INSERT (equivale a un trigger definido por el DBA). */
+  registrarDisparador(tabla, fn) {
+    this.#motor.disparadores.set(tabla, fn);
+  }
+
   /**
    * Simula a un atacante (o DBA) con acceso físico a los archivos de la BD: ve TODO,
    * sin pasar por GRANTS. Se usa solo como evidencia de qué queda expuesto en reposo.
@@ -389,6 +531,11 @@ class BaseDeDatos {
     const fila = this.#motor.tablas.get(tabla).get(pk);
     if (!fila) throw errorBD('BD_NO_ENCONTRADO', 'Registro no encontrado.');
     this.#motor.tablas.get(tabla).set(pk, { ...fila, ...cambios });
+  }
+
+  /** Simula el borrado directo de una fila saltándose los GRANTS (ataque). Solo para pruebas/demo. */
+  eliminarFilaDirecto(tabla, pk) {
+    return this.#motor.tablas.get(tabla).delete(pk);
   }
 
   reiniciar() {

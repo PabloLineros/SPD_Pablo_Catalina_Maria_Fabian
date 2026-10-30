@@ -7,8 +7,8 @@ const { MATRIZ, PERMISOS, ROLES } = await import('../src/security/rbac.js');
  */
 
 const roles = Object.values(ROLES);
-const propios = new Set(['perfil:propio:leer', 'perfil:propio:editar', 'cuenta:propia:suprimir',
-  'pedidos:propios:leer', 'puntos:propios', 'consentimiento:propio']);
+const propios = new Set(['perfil:propio:leer', 'perfil:propio:editar',
+  'pedidos:propios:leer', 'puntos:propios', 'consentimiento:propio', 'derechos:propios:solicitar']);
 
 console.log(`| Permiso | ${roles.join(' | ')} |`);
 console.log(`|---|${roles.map(() => ':---:').join('|')}|`);

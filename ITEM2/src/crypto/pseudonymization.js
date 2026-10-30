@@ -42,6 +42,14 @@ export function seudonimo(finalidad, userId) {
   return hmacHex(finalidad, userId);
 }
 
+/**
+ * Huella de supresión de un titular: HMAC(K_indice, 'supresion:' + user_id). Permite reconocer
+ * a un titular suprimido (p. ej. al restaurar un respaldo) sin conservar ningún dato suyo.
+ */
+export function huellaSupresion(userId) {
+  return hmacHex(FINALIDADES.INDICE, `supresion:${userId}`);
+}
+
 /** Referencia opaca aleatoria (UUID v4, 122 bits de entropía). */
 export function referenciaAleatoria() {
   return crypto.randomUUID();

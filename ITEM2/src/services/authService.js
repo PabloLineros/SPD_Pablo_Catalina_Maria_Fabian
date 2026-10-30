@@ -6,6 +6,7 @@ import { indiceCiegoEmail } from '../crypto/pseudonymization.js';
 import { ROLES } from '../security/rbac.js';
 import { errores } from '../security/errors.js';
 import { logger } from '../security/logger.js';
+import { registrarAuditoria } from '../security/audit.js';
 
 /**
  * Autenticación y sesiones.
@@ -24,9 +25,12 @@ const hashToken = (token) => crypto.createHash('sha256').update(String(token)).d
 
 export async function iniciarSesion({ email, password } = {}) {
   const emailHmac = indiceCiegoEmail(email ?? '');
+  // En auditoría la cuenta se identifica por un prefijo del índice ciego, nunca por el email.
+  const cuentaRef = `cuenta:${emailHmac.slice(0, 12)}`;
   const estado = intentos.get(emailHmac);
   if (estado?.bloqueadoHasta > Date.now()) {
     logger.warn('login_bloqueado', { cuenta: emailHmac.slice(0, 12) });
+    registrarAuditoria({ actorId: cuentaRef, actorRol: 'ANONIMO', accion: 'auth:login', recurso: cuentaRef, resultado: 'FALLIDO', motivo: 'CUENTA_BLOQUEADA' });
     throw errores.cuentaBloqueada();
   }
 
@@ -42,6 +46,7 @@ export async function iniciarSesion({ email, password } = {}) {
       bloqueadoHasta: fallos >= CONFIG.MAX_INTENTOS_LOGIN ? Date.now() + BLOQUEO_MS : 0
     });
     logger.warn('login_fallido', { cuenta: emailHmac.slice(0, 12), fallos });
+    registrarAuditoria({ actorId: cuentaRef, actorRol: 'ANONIMO', accion: 'auth:login', recurso: cuentaRef, resultado: 'FALLIDO', motivo: `fallos=${fallos}` });
     throw errores.credencialesInvalidas();
   }
   intentos.delete(emailHmac);
@@ -57,6 +62,7 @@ export async function iniciarSesion({ email, password } = {}) {
     created_at: ahora.toISOString()
   });
   logger.info('login_exitoso', { usuarioId: cuenta.id, rol: cliente ? ROLES.CLIENTE : personal.rol });
+  registrarAuditoria({ actorId: cuenta.id, actorRol: cliente ? ROLES.CLIENTE : personal.rol, accion: 'auth:login', recurso: `cuenta:${cuenta.id}`, resultado: 'EXITO' });
 
   return { token, rol: cliente ? ROLES.CLIENTE : personal.rol, usuarioId: cuenta.id, expiraEnMinutos: CONFIG.SESSION_TTL_MINUTOS };
 }

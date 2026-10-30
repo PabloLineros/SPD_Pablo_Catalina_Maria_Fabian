@@ -88,9 +88,4 @@ export class AdminService {
     registrarAuditoria({ sesion, accion: PERMISOS.ROLES_GESTIONAR, recurso: `personal:${personalId}`, resultado: 'PERMITIDO', motivo: 'desactivar' });
     return { id: personalId, activo: false };
   }
-
-  static leerAuditoria(sesion, { limite = 50 } = {}) {
-    autorizar(sesion, PERMISOS.AUDITORIA_LEER, { recurso: 'audit_log' });
-    return bd.seleccionar('audit_log').slice(-Math.min(Math.max(1, limite), 500));
-  }
 }

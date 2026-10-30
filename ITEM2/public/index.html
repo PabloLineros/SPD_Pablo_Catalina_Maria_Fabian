@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Centro de privacidad · NortiShop</title>
+  <link rel="stylesheet" href="/estilos.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <header class="barra">
+    <div class="marca"><span class="logo" aria-hidden="true">N</span> NortiShop <span class="sep">/</span> Centro de privacidad</div>
+    <button id="btn-salir" class="enlace" hidden>Cerrar sesión</button>
+  </header>
+
+  <main id="contenido">
+    <section id="vista-login" class="tarjeta login">
+      <h1>Tus datos, tus decisiones</h1>
+      <p class="tenue">Ingresa para revisar tus consentimientos y ejercer tus derechos de acceso, portabilidad, rectificación y supresión.</p>
+      <form id="form-login">
+        <label for="login-email">Correo</label>
+        <input id="login-email" type="email" autocomplete="username" required value="ana.prueba@ejemplo.test">
+        <label for="login-clave">Contraseña</label>
+        <input id="login-clave" type="password" autocomplete="current-password" required value="ClaveDePrueba#2026">
+        <button type="submit" class="primario">Ingresar</button>
+        <p class="nota">Datos sintéticos de demostración. No uses datos reales.</p>
+      </form>
+      <p id="login-error" class="error" role="alert" hidden></p>
+    </section>
+
+    <div id="vista-centro" hidden>
+      <p id="aviso" class="aviso" role="status" hidden></p>
+
+      <section class="bloque" aria-labelledby="t-consent">
+        <div class="bloque-cab">
+          <h2 id="t-consent">Consentimientos</h2>
+          <p class="tenue">Cada uso es una decisión separada. Aceptar uno no activa los demás, y puedes retirarlo cuando quieras.</p>
+        </div>
+        <div id="lista-consent" class="lista-consent"></div>
+      </section>
+
+      <section class="bloque" aria-labelledby="t-otros">
+        <div class="bloque-cab">
+          <h2 id="t-otros">Usos que no dependen de tu consentimiento</h2>
+          <p class="tenue">Son necesarios para venderte, despacharte o cumplir la ley. Te los informamos, pero no te pedimos permiso para ellos.</p>
+        </div>
+        <ul id="lista-otros" class="lista-otros"></ul>
+      </section>
+
+      <section class="bloque" aria-labelledby="t-hist">
+        <div class="bloque-cab"><h2 id="t-hist">Historial de consentimientos</h2></div>
+        <div class="tabla-scroll"><table id="tabla-hist"><thead><tr><th>Fecha y hora</th><th>Finalidad</th><th>Acción</th><th>Versión</th><th>Canal</th></tr></thead><tbody></tbody></table></div>
+      </section>
+
+      <section class="bloque" aria-labelledby="t-derechos">
+        <div class="bloque-cab">
+          <h2 id="t-derechos">Tus derechos</h2>
+          <p class="tenue">Para protegerte, confirmamos que eres tú con tu contraseña y, en las solicitudes de mayor riesgo, con un código enviado a tu correo.</p>
+        </div>
+        <div class="derechos">
+          <article class="derecho">
+            <h3>Acceso</h3><p>Una copia de tus datos e información de cómo los usamos.</p>
+            <button data-tipo="ACCESO">Solicitar copia</button>
+          </article>
+          <article class="derecho">
+            <h3>Portabilidad</h3><p>Tus datos en formato JSON, para llevarlos a otro servicio.</p>
+            <button data-tipo="PORTABILIDAD">Solicitar archivo</button>
+          </article>
+          <article class="derecho">
+            <h3>Rectificación</h3><p>Corrige datos inexactos. Solo completa lo que quieras cambiar.</p>
+            <form id="form-rect">
+              <label for="r-nombre">Nombre</label><input id="r-nombre" autocomplete="name">
+              <label for="r-telefono">Teléfono</label><input id="r-telefono" autocomplete="tel" placeholder="+56 9 1234 5678">
+              <label for="r-direccion">Dirección de despacho</label><input id="r-direccion" autocomplete="street-address">
+              <label for="r-comuna">Comuna</label><input id="r-comuna">
+              <label for="r-email">Correo</label><input id="r-email" type="email" autocomplete="email">
+              <button type="submit">Solicitar corrección</button>
+            </form>
+          </article>
+          <article class="derecho peligro">
+            <h3>Supresión</h3><p>Elimina tu cuenta. Conservaremos bloqueados solo los documentos tributarios que la ley exige guardar.</p>
+            <label for="sup-confirma">Escribe ELIMINAR para continuar</label>
+            <input id="sup-confirma" autocomplete="off">
+            <button data-tipo="SUPRESION" class="destructivo">Solicitar supresión</button>
+          </article>
+        </div>
+
+        <form id="form-verif" class="verif" hidden>
+          <h3>Confirma que eres tú</h3>
+          <p id="verif-texto" class="tenue"></p>
+          <label for="v-clave">Contraseña</label><input id="v-clave" type="password" autocomplete="current-password" required>
+          <div id="v-codigo-campo"><label for="v-codigo">Código de 6 dígitos</label><input id="v-codigo" inputmode="numeric" pattern="\d{6}" maxlength="6"></div>
+          <button type="submit" class="primario">Confirmar solicitud</button>
+        </form>
+
+        <div id="resultado" class="resultado" hidden>
+          <h3 id="resultado-titulo"></h3>
+          <p id="resultado-texto"></p>
+          <a id="resultado-descarga" class="boton" hidden>Descargar JSON</a>
+          <pre id="resultado-json" class="json" hidden></pre>
+        </div>
+
+        <h3 class="subt">Tus solicitudes</h3>
+        <div class="tabla-scroll"><table id="tabla-sol"><thead><tr><th>Tipo</th><th>Estado</th><th>Resultado</th><th>Recibida</th><th>Plazo de respuesta</th><th>Cerrada</th></tr></thead><tbody></tbody></table></div>
+      </section>
+
+      <section class="bloque correo" aria-labelledby="t-correo">
+        <div class="bloque-cab">
+          <h2 id="t-correo">Correo recibido <span class="etiqueta">simulado</span></h2>
+          <p class="tenue">En este prototipo no hay proveedor de correo: los mensajes que recibirías aparecen aquí.</p>
+        </div>
+        <ul id="lista-correo" class="lista-correo"></ul>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

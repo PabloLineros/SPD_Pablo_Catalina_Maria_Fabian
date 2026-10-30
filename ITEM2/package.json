@@ -9,9 +9,11 @@
   },
   "scripts": {
     "start": "node src/demo.js",
+    "demo:privacidad": "node src/demo-privacidad.js",
     "test": "node --import ./scripts/entorno-pruebas.js --test",
     "generar-env": "node scripts/generar-env.js",
-    "matriz": "node scripts/matriz-rbac.js"
+    "matriz": "node scripts/matriz-rbac.js",
+    "servidor": "node src/server.js"
   },
   "keywords": [
     "cybersecurity",

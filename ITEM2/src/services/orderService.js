@@ -10,6 +10,7 @@ import { errores } from '../security/errors.js';
 import { soloCampos, validar } from '../security/validation.js';
 import { CatalogService } from './catalogService.js';
 import { LoyaltyService } from './loyaltyService.js';
+import { tieneConsentimientoVigente } from './consentService.js';
 
 /**
  * Servicio de Pedidos.
@@ -82,8 +83,10 @@ export class OrderService {
     const user = bd.obtener('users', userId);
     if (!user) throw errores.noEncontrado('Usuario');
 
+    // El token guardado solo se usa si el consentimiento GUARDAR_MEDIO_PAGO sigue vigente.
+    const tokenGuardado = user.token_pago && tieneConsentimientoVigente(userId, 'GUARDAR_MEDIO_PAGO') ? user.token_pago : null;
     const { total, lineas } = CatalogService.reservarItems(entrada.items);
-    const pago = cobrar({ tokenGuardado: user.token_pago, tarjeta: entrada.tarjeta, total });
+    const pago = cobrar({ tokenGuardado, tarjeta: entrada.tarjeta, total });
 
     const orderId = crypto.randomUUID();
     const direccion = decryptField(user.direccion_despacho_cifrada, contexto('users', 'direccion_despacho_cifrada', userId));
@@ -109,7 +112,7 @@ export class OrderService {
       total_clp: total,
       transaccion_id: pago.transactionId,
       codigo_autorizacion: pago.authorizationCode,
-      tarjeta_last4: pago.last4 ?? user.tarjeta_last4,
+      tarjeta_last4: pago.last4 ?? (tokenGuardado ? user.tarjeta_last4 : null),
       direccion_envio_cifrada: encryptField(direccion, contexto('orders', 'direccion_envio_cifrada', orderId)),
       comuna_envio: user.comuna,
       tipo_documento: tipoDocumento,
@@ -121,7 +124,7 @@ export class OrderService {
     crearEnvio(orderId, 'REGISTRADO');
     const puntosGanados = LoyaltyService.acreditarCompra(userId, total);
 
-    return { id: orderId, total_clp: total, estado: 'PAGADO', tipoDocumento, tarjeta_last4: pago.last4 ?? user.tarjeta_last4, puntosGanados };
+    return { id: orderId, total_clp: total, estado: 'PAGADO', tipoDocumento, tarjeta_last4: pago.last4 ?? (tokenGuardado ? user.tarjeta_last4 : null), puntosGanados };
   }
 
   /** Historial de pedidos propios (sin dirección: el cliente ya la ve en su perfil). */
