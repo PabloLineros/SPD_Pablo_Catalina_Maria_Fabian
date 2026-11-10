@@ -118,7 +118,7 @@ test('Supresión: elimina PII y equivalencias, bloquea facturación y conserva p
   ok(await API.logistica.actualizarEstado(tokens.logistica, ref, 'EN_RUTA'));
   ok(await API.logistica.actualizarEstado(tokens.logistica, ref, 'ENTREGADO'));
   const ejecutada = ok(await ejercerDerecho(tokens.clienteA, ids.clienteA, { tipo: 'SUPRESION' }, { emailCodigo: email }));
-  assert.equal(ejecutada.solicitud.resultado, 'EJECUTADA');
+  assert.equal(ejecutada.solicitud.resultado, 'PARCIAL', 'la factura queda bloqueada por obligación legal');
 
   const bd = DB.simularAccesoFisico();
   assert.equal(bd.users.some(u => u.id === ids.clienteA), false);

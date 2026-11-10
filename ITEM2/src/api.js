@@ -72,8 +72,17 @@ export const API = {
   derechos: {
     solicitar: protegido('derechos.solicitar', (s, userId, entrada) => RightsService.solicitar(s, userId, entrada)),
     confirmar: protegido('derechos.confirmar', (s, userId, solicitudId, entrada) => RightsService.confirmar(s, userId, solicitudId, entrada)),
+    descargar: protegido('derechos.descargar', (s, token) => RightsService.descargar(s, token)),
     misSolicitudes: protegido('derechos.misSolicitudes', (s, userId) => RightsService.misSolicitudes(s, userId)),
-    gestion: protegido('derechos.gestion', (s) => RightsService.listarGestion(s))
+    misRestricciones: protegido('derechos.misRestricciones', (s, userId) => RightsService.misRestricciones(s, userId)),
+    levantarBloqueo: protegido('derechos.levantarBloqueo', (s, userId) => RightsService.levantarBloqueoPropio(s, userId)),
+    retirarOposicion: protegido('derechos.retirarOposicion', (s, userId, entrada) => RightsService.retirarOposicion(s, userId, entrada)),
+    solicitarSinCuenta: publico('derechos.solicitarSinCuenta', (entrada) => RightsService.solicitarSinCuenta(entrada)),
+    confirmarSinCuenta: publico('derechos.confirmarSinCuenta', (entrada) => RightsService.confirmarSinCuenta(entrada)),
+    descargarSinCuenta: publico('derechos.descargarSinCuenta', (token) => RightsService.descargar(null, token)),
+    gestion: protegido('derechos.gestion', (s) => RightsService.listarGestion(s)),
+    revisarPlazos: protegido('derechos.revisarPlazos', (s, ahora) => RightsService.revisarPlazos(s, ahora ? new Date(ahora) : undefined)),
+    localizar: protegido('derechos.localizar', (s, userId) => RightsService.localizar(s, userId))
   },
   invitado: {
     crearPedido: publico('invitado.crearPedido', (entrada) => OrderService.crearPedidoInvitado(entrada)),
@@ -104,7 +113,8 @@ export const API = {
     anonimizarInvitados: protegido('privacidad.anonimizar', (s, ahora) => Privacidad.anonimizarInvitadosVencidos(s, ahora ? new Date(ahora) : undefined)),
     revertirSeudonimo: protegido('privacidad.revertir', (s, entrada) => Privacidad.revertirSeudonimo(s, entrada)),
     copiaDesarrollo: protegido('privacidad.copiaDesarrollo', (s) => Privacidad.generarCopiaDesarrollo(s)),
-    reaplicarSupresiones: protegido('privacidad.reaplicarSupresiones', (s) => Privacidad.reaplicarSupresiones(s))
+    reaplicarSupresiones: protegido('privacidad.reaplicarSupresiones', (s) => Privacidad.reaplicarSupresiones(s)),
+    eliminarBloqueadosVencidos: protegido('privacidad.eliminarBloqueados', (s, ahora) => Privacidad.eliminarBloqueadosVencidos(s, ahora ? new Date(ahora) : undefined))
   },
   auditoria: {
     consultar: protegido('auditoria.consultar', (s, filtros) => AuditService.consultar(s, filtros)),

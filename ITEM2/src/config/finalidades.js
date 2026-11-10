@@ -48,6 +48,7 @@ export const FINALIDADES_OTRAS_BASES = Object.freeze({
   DESPACHO: { nombre: 'Despacho de pedidos', base: BASES.CONTRATO },
   FACTURACION: { nombre: 'Emisión y conservación de boletas y facturas', base: BASES.OBLIGACION_LEGAL },
   NORTIPUNTOS: { nombre: 'Programa NortiPuntos', base: BASES.CONTRATO },
+  ENCUESTAS_SATISFACCION: { nombre: 'Encuesta de satisfacción tras la entrega (puedes oponerte)', base: BASES.INTERES_LEGITIMO },
   SEGURIDAD: { nombre: 'Seguridad, auditoría y prevención de fraude', base: BASES.INTERES_LEGITIMO }
 });
 

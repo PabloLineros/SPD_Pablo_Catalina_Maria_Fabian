@@ -24,7 +24,8 @@ import { logger } from './security/logger.js';
 
 const PUBLICAS = new Set([
   'auth.registrar', 'auth.iniciarSesion', 'auth.cerrarSesion', 'catalogo.listar', 'catalogo.resenas',
-  'invitado.crearPedido', 'invitado.consultarPedido', 'consentimiento.desuscribir'
+  'invitado.crearPedido', 'invitado.consultarPedido', 'consentimiento.desuscribir',
+  'derechos.solicitarSinCuenta', 'derechos.confirmarSinCuenta', 'derechos.descargarSinCuenta'
 ]);
 const MAX_CUERPO = 100 * 1024;
 const PUBLICO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../public');
@@ -96,12 +97,23 @@ function manejarBandejaDev(req, res) {
   }
 }
 
+/**
+ * SOLO DESARROLLO: bandeja simulada de un correo cualquiera, para ver el código del canal sin
+ * cuenta en el prototipo (en producción el código llega al correo real y esta ruta no existe).
+ */
+function manejarBandejaPublicaDev(res, url) {
+  if (CONFIG.NODE_ENV === 'production') return responder(res, 404, { ok: false });
+  const email = url.searchParams.get('email') ?? '';
+  return responder(res, 200, { ok: true, data: bandejaDe(email).reverse() });
+}
+
 export function crearServidor() {
   return http.createServer(async (req, res) => {
     try {
       const url = new URL(req.url, 'http://localhost');
       const api = /^\/api\/([a-zA-Z]+)\/([a-zA-Z]+)$/.exec(url.pathname);
       if (url.pathname === '/api/dev/bandeja' && req.method === 'GET') return manejarBandejaDev(req, res);
+      if (url.pathname === '/api/dev/bandeja-publica' && req.method === 'GET') return manejarBandejaPublicaDev(res, url);
       if (api) return await manejarApi(req, res, api[1], api[2]);
       const archivo = ESTATICOS[url.pathname];
       if (archivo && req.method === 'GET') {
@@ -118,10 +130,15 @@ export function crearServidor() {
 
 // Ejecución directa: `npm run servidor` levanta el servidor con datos sintéticos de demostración.
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const { prepararEscenario, PASSWORD_PRUEBA } = await import('./dev/escenario.js');
-  await prepararEscenario();
+  const { prepararEscenario, PASSWORD_PRUEBA, TARJETA_VISA } = await import('./dev/escenario.js');
+  const { ids } = await prepararEscenario();
+  await API.invitado.crearPedido({
+    nombre: 'Invitada Prueba', email: 'invitada@ejemplo.test', direccionDespacho: 'Calle Invitada 77', comuna: 'Arica',
+    items: [{ productoId: ids.productos[1], cantidad: 1 }], tarjeta: TARJETA_VISA
+  });
   crearServidor().listen(CONFIG.PUERTO, '127.0.0.1', () => {
     console.log(`Centro de privacidad: http://127.0.0.1:${CONFIG.PUERTO}/`);
     console.log(`Cuenta de prueba (sintética): ana.prueba@ejemplo.test / ${PASSWORD_PRUEBA}`);
+    console.log('Compra sin cuenta (sintética): invitada@ejemplo.test');
   });
 }

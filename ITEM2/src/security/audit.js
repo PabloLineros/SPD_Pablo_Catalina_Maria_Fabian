@@ -42,8 +42,9 @@ DB.registrarDisparador('audit_log', (fila, ultima) => {
 const REGLAS_CATEGORIA = [
   [/^auth:/, 'AUTENTICACION'],
   [/^consentimiento/, 'CONSENTIMIENTO'],
-  [/^derechos:(acceso|portabilidad):ejecutada/, 'EXPORTACION'],
-  [/^derechos:supresion:ejecutada/, 'SUPRESION'],
+  [/^derechos:(acceso|portabilidad):(ejecutada|descargada)/, 'EXPORTACION'],
+  [/^derechos:supresion:(ejecutada|parcial)/, 'SUPRESION'],
+  [/^tratamiento:/, 'TRATAMIENTO'], // ejecución (u omisión por oposición/bloqueo) de un tratamiento
   [/^derechos:rectificacion:ejecutada|^perfil:propio:editar/, 'MODIFICACION'],
   [/^derechos:/, 'DERECHOS'], // recepción, verificación, rechazo y anulación de solicitudes
   [/^clientes:pii:revelar|^envios:etiqueta|^seudonimos:revertir|^perfil:propio:leer/, 'ACCESO_SENSIBLE'],

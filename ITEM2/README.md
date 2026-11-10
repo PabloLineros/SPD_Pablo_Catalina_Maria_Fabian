@@ -14,6 +14,7 @@ Prototipo del backend de NortiShop, con un servidor HTTP y una pantalla web (el 
 | [`02_seudonimizacion.sql`](../02_seudonimizacion.sql) | Seudonimización y anonimización. |
 | [`03_rbac.sql`](../03_rbac.sql) | Roles y permisos en la base de datos. |
 | [`04_consentimiento_derechos_auditoria.sql`](../04_consentimiento_derechos_auditoria.sql) | Consentimiento, derechos, auditoría sellada e incidentes. |
+| [`05_ejercicio_derechos.sql`](../05_ejercicio_derechos.sql) | Canal sin cuenta, folio, rectificaciones, descargas de un solo uso, terceros, oposición y bloqueo. |
 
 Documentos de diseño: [`INFORME_HITO2.md`](../INFORME_HITO2.md), [`INFORME_CONSENTIMIENTO_DERECHOS_AUDITORIA.md`](../INFORME_CONSENTIMIENTO_DERECHOS_AUDITORIA.md) y [`PLAN_RESPUESTA_INCIDENTES.md`](../PLAN_RESPUESTA_INCIDENTES.md).
 
@@ -39,11 +40,14 @@ Documentos de diseño: [`INFORME_HITO2.md`](../INFORME_HITO2.md), [`INFORME_CONS
    - Cada finalidad (marketing, guardar tarjeta, analítica) tiene su propia decisión, con estado, versión del texto y fecha, y un historial de solo inserción.
    - La revocación tiene efecto inmediato en los procesos que dependen de ella.
    - Si cambia el texto, el titular debe renovar su consentimiento.
-7. **Derechos de los titulares.**
-   - Acceso, portabilidad (JSON), rectificación y supresión.
+7. **Derechos de los titulares** (actividad PR-05).
+   - Acceso, portabilidad, rectificación, supresión, oposición y bloqueo.
+   - Dos canales: Centro de privacidad (con cuenta) y formulario **sin cuenta** para invitados o ex clientes. Cada solicitud tiene folio, fecha por etapa y fecha límite.
    - Verificación de identidad proporcional al riesgo: contraseña y, para acceso, portabilidad, supresión y cambio de correo, un código de un solo uso.
-   - Flujo con fecha por etapa: recibida, verificada, en evaluación, cerrada.
-   - La supresión deja una lápida HMAC, que impide que el titular reaparezca al restaurar un respaldo.
+   - La copia se entrega por un enlace **temporal, de un solo uso y cifrado**, con origen y finalidad de cada dato y el mapa de dónde se encontró.
+   - La rectificación registra el valor anterior y el nuevo (cifrados) y avisa a los terceros.
+   - La supresión elimina, bloquea lo exigido por ley hasta su plazo, se propaga a copias, respaldos y terceros, y deja una lápida HMAC.
+   - Aviso al equipo de privacidad cuando una solicitud está por vencer.
 8. **Auditoría.**
    - Cada registro se sella con un HMAC encadenado al anterior; un disparador asigna la secuencia y el sello.
    - Solo inserción, con lectura exclusiva de `rol_auditor`.
@@ -65,7 +69,9 @@ ITEM2/
 ├── scripts/
 │   ├── generar-env.js        # Crea/completa .env con llaves aleatorias (no sobrescribe)
 │   ├── entorno-pruebas.js    # Llaves efímeras para npm test
-│   └── matriz-rbac.js        # Imprime la matriz RBAC desde el código
+│   ├── matriz-rbac.js        # Imprime la matriz RBAC desde el código
+│   ├── capturas.mjs          # Regenera las capturas (Chrome/Edge headless)
+│   └── diagramas.mjs         # Convierte los diagramas Mermaid del informe en PNG
 ├── src/
 │   ├── server.js             # Servidor HTTP: POST /api/<grupo>/<op>, CSP, límites
 │   ├── api.js                # Endpoints: sesión + errores seguros
@@ -74,7 +80,7 @@ ITEM2/
 │   │   └── finalidades.js    # Finalidades, bases de licitud y textos versionados
 │   ├── crypto/               # llavero, AES-GCM, bcrypt, HMAC, seudónimos, tokenización
 │   ├── db/repository.js      # BD simulada: esquema, tipos, GRANTS y disparadores
-│   ├── infra/correo.js       # Proveedor de correo SIMULADO (bandeja en memoria)
+│   ├── infra/                # Proveedor de correo y terceros SIMULADOS (con constancia)
 │   ├── security/
 │   │   ├── rbac.js           # Roles, permisos, matriz, autorizar() y suspensión de roles
 │   │   ├── audit.js          # Auditoría sellada (disparador + categorías)
@@ -84,12 +90,12 @@ ITEM2/
 │   │   └── validation.js     # Lista blanca de campos, validaciones y enmascaramiento
 │   ├── services/             # auth, user, order, loyalty, review, marketing, support,
 │   │                         # logistics, catalog, admin, privacy, consent, rights,
-│   │                         # audit, incident
+│   │                         # restriction (oposición y bloqueo), audit, incident
 │   ├── dev/escenario.js      # Datos SINTÉTICOS para demo y pruebas
 │   ├── demo.js               # Demo: minimización, seudonimización, RBAC
 │   └── demo-privacidad.js    # Demo: consentimiento, derechos, auditoría, incidentes
-├── evidencias/               # Salidas de demo y pruebas para el informe
-└── test/                     # 82 pruebas automatizadas
+├── evidencias/               # Salidas de demo y pruebas, capturas y diagramas para el informe
+└── test/                     # 93 pruebas automatizadas
 ```
 
 ## 3. Requisitos
@@ -110,11 +116,13 @@ npm run generar-env
 
 | Comando | Qué hace |
 |---|---|
-| `npm run servidor` | Levanta el **Centro de privacidad** en `http://127.0.0.1:3000/` con datos sintéticos. Cuenta de prueba: `ana.prueba@ejemplo.test` / `ClaveDePrueba#2026`. |
+| `npm run servidor` | Levanta el **Centro de privacidad** en `http://127.0.0.1:3000/` con datos sintéticos. Cuenta de prueba: `ana.prueba@ejemplo.test` / `ClaveDePrueba#2026`. Compra sin cuenta: `invitada@ejemplo.test`. |
 | `npm run demo:privacidad` | Demo por consola: consentimiento, derechos, auditoría, incidentes y controles no eludibles. |
 | `npm start` | Demo por consola de las etapas anteriores: minimización, datos en reposo, seudonimización y RBAC. |
-| `npm test` | Ejecuta las 82 pruebas con llaves efímeras (no usa las de `.env`). |
+| `npm test` | Ejecuta las 93 pruebas con llaves efímeras (no usa las de `.env`). |
 | `npm run matriz` | Imprime la matriz RBAC en Markdown, generada desde `src/security/rbac.js`. |
+| `node scripts/capturas.mjs` | Regenera las capturas de `evidencias/capturas/` (requiere Chrome o Edge). |
+| `node scripts/diagramas.mjs` | Regenera los diagramas de `evidencias/diagramas/` desde el informe (requiere Chrome o Edge e internet). |
 
 ## 6. Consideraciones de seguridad
 

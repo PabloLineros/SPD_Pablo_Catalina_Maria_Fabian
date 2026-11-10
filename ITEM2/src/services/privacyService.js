@@ -9,6 +9,7 @@ import { errores } from '../security/errors.js';
 import { soloCampos } from '../security/validation.js';
 import { logger } from '../security/logger.js';
 import { cerrarTodasLasSesiones } from './authService.js';
+import { comunicarATercero } from '../infra/terceros.js';
 
 /**
  * Servicio de Privacidad: seudonimización, anonimización y derechos del titular.
@@ -71,7 +72,8 @@ export function ejecutarEtlAnalitica(sesion) {
 
   const habilitados = titularesHabilitados('ANALITICA_COMPRAS', bdEtl);
   const suprimidos = new Set(bdEtl.seleccionar('supresiones').map(s => s.id));
-  const incluir = (userId) => habilitados.has(userId) && !suprimidos.has(huellaSupresion(userId));
+  const bloqueados = new Set(bdEtl.seleccionar('bloqueos', b => b.estado === 'ACTIVO').map(b => b.user_id));
+  const incluir = (userId) => habilitados.has(userId) && !bloqueados.has(userId) && !suprimidos.has(huellaSupresion(userId));
 
   const productos = new Map(bdEtl.seleccionar('productos').map(p => [p.id, p]));
   const items = bdEtl.seleccionar('order_items');
@@ -132,15 +134,21 @@ export function anonimizarInvitadosVencidos(sesion, ahora = new Date()) {
     (o.nombre_invitado_cifrado || o.email_invitado_cifrado || o.telefono_invitado_cifrado || o.direccion_envio_cifrada));
 
   for (const o of vencidos) {
-    bdPrivacidad.actualizar('orders_invitado', o.id, {
-      nombre_invitado_cifrado: null,
-      email_invitado_cifrado: null,
-      telefono_invitado_cifrado: null,
-      direccion_envio_cifrada: null
-    });
+    anonimizarContactoInvitado(o.id);
   }
   registrarAuditoria({ sesion, accion: 'job:anonimizar_invitados', recurso: 'orders_invitado', resultado: 'PERMITIDO', motivo: `${vencidos.length} registros` });
   return { anonimizados: vencidos.length };
+}
+
+/** Borra el contacto de un pedido de invitado (y su índice ciego); conserva montos y estado. */
+export function anonimizarContactoInvitado(orderId) {
+  bdPrivacidad.actualizar('orders_invitado', orderId, {
+    email_hmac: null,
+    nombre_invitado_cifrado: null,
+    email_invitado_cifrado: null,
+    telefono_invitado_cifrado: null,
+    direccion_envio_cifrada: null
+  });
 }
 
 /** Motivo fundamentado por el que la supresión no puede ejecutarse ahora (o null si procede). */
@@ -162,7 +170,7 @@ export function impedimentoSupresion(userId) {
  *  - Registra una lápida (HMAC del user_id) para que el ETL y la restauración de respaldos no
  *    vuelvan a usar sus datos.
  */
-export function suprimirCliente(userId) {
+export function suprimirCliente(userId, solicitudId = null) {
   const usuario = bdApp.obtener('users', userId);
   if (!usuario) throw errores.noEncontrado('Usuario');
   const impedimento = impedimentoSupresion(userId);
@@ -170,14 +178,34 @@ export function suprimirCliente(userId) {
 
   const huella = huellaSupresion(userId);
   if (!bdApp.obtener('supresiones', huella)) bdApp.insertar('supresiones', { id: huella, suprimido_el: new Date().toISOString() });
-  return limpiarDatosTitular(userId);
+  return limpiarDatosTitular(userId, solicitudId);
 }
 
-function limpiarDatosTitular(userId) {
+const ANIOS_CONSERVACION_TRIBUTARIA = 6;
+
+function limpiarDatosTitular(userId, solicitudId = null) {
+  // Terceros que recibieron datos: se registra lo que se les comunica (propagación de la supresión).
+  const usuario = bdApp.obtener('users', userId);
+  const suscripcion = bdApp.buscarUno('suscripciones_marketing', s => s.user_id === userId);
+  const terceros = [];
+  if (usuario?.token_pago) terceros.push(comunicarATercero({ tercero: 'PASARELA_PAGO', tipo: 'SUPRESION', referencia: `revocar token de user:${userId}`, solicitudId }));
+  if (suscripcion) terceros.push(comunicarATercero({ tercero: 'PLATAFORMA_CORREO', tipo: 'SUPRESION', referencia: `baja suscriptor:${suscripcion.suscriptor_pseudo}`, solicitudId }));
+
   revocarTodoPorSupresion(userId); // token de pago, suscripción y filas analíticas
   const pedidos = bdApp.seleccionar('orders', o => o.user_id === userId);
   for (const o of pedidos) bdApp.actualizar('orders', o.id, { direccion_envio_cifrada: null });
-  for (const f of bdApp.seleccionar('facturacion', f => f.user_id === userId)) bdApp.actualizar('facturacion', f.id, { bloqueado: true });
+  for (const f of bdApp.seleccionar('facturacion', f => f.user_id === userId)) {
+    const hasta = new Date(f.created_at);
+    hasta.setFullYear(hasta.getFullYear() + ANIOS_CONSERVACION_TRIBUTARIA);
+    bdApp.actualizar('facturacion', f.id, { bloqueado: true, bloqueado_hasta: hasta.toISOString() });
+  }
+  // Copias generadas para el titular y registros de sus derechos que contienen datos personales.
+  for (const tabla of ['descargas', 'rectificaciones']) {
+    for (const f of bdApp.seleccionar(tabla, x => x.user_id === userId)) bdApp.eliminar(tabla, f.id);
+  }
+  for (const tabla of ['oposiciones', 'bloqueos']) {
+    for (const f of bdApp.seleccionar(tabla, x => x.user_id === userId)) bdApp.eliminar(tabla, f.id);
+  }
   for (const h of bdApp.seleccionar('historial_puntos', h => h.user_id === userId)) bdApp.eliminar('historial_puntos', h.id);
   bdApp.eliminar('loyalty_accounts', userId);
   const pseudo = seudonimo('analitica', userId);
@@ -190,7 +218,29 @@ function limpiarDatosTitular(userId) {
   bdApp.eliminar('users', userId);
 
   logger.info('cuenta_suprimida', { usuarioId: userId });
-  return { suprimido: true, pedidosConservados: pedidos.length, facturasBloqueadas: bdApp.seleccionar('facturacion', f => f.user_id === userId).length };
+  const facturas = bdApp.seleccionar('facturacion', f => f.user_id === userId);
+  return {
+    suprimido: true,
+    pedidosConservados: pedidos.length,
+    facturasBloqueadas: facturas.length,
+    bloqueadasHasta: facturas.map(f => f.bloqueado_hasta).sort().pop() ?? null,
+    tercerosNotificados: terceros.map(t => t.tercero)
+  };
+}
+
+/**
+ * Job: cumplido el plazo legal de conservación, se eliminan los datos que estaban BLOQUEADOS por
+ * esa obligación (facturación de titulares suprimidos). Antes se desvincula el pedido.
+ */
+export function eliminarBloqueadosVencidos(sesion, ahora = new Date()) {
+  autorizar(sesion, PERMISOS.PRIVACIDAD_PROCESOS, { recurso: 'facturacion' });
+  const vencidas = bdApp.seleccionar('facturacion', f => f.bloqueado && f.bloqueado_hasta && Date.parse(f.bloqueado_hasta) <= ahora.getTime());
+  for (const f of vencidas) {
+    for (const o of bdApp.seleccionar('orders', x => x.facturacion_id === f.id)) bdApp.actualizar('orders', o.id, { facturacion_id: null });
+    bdApp.eliminar('facturacion', f.id);
+  }
+  registrarAuditoria({ sesion, accion: 'job:eliminar_bloqueados_vencidos', recurso: 'facturacion', resultado: 'EXITO', motivo: `${vencidas.length} registros` });
+  return { eliminados: vencidas.length };
 }
 
 /**

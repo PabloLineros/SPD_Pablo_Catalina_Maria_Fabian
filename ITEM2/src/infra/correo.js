@@ -17,9 +17,12 @@ export function bandejaDe(email) {
   return enviados.filter(m => m.para === String(email).toLowerCase()).map(m => ({ ...m }));
 }
 
+// El código siempre va como "... es 123456." (el folio DER-2026-000001 también tiene 6 dígitos).
+const PATRON_CODIGO = /\bes (\d{6})\./;
+
 export function ultimoCodigoPara(email) {
-  const m = bandejaDe(email).reverse().find(x => /\b\d{6}\b/.test(x.cuerpo));
-  return m?.cuerpo.match(/\b(\d{6})\b/)[1] ?? null;
+  const m = bandejaDe(email).reverse().find(x => PATRON_CODIGO.test(x.cuerpo));
+  return m?.cuerpo.match(PATRON_CODIGO)[1] ?? null;
 }
 
 export function vaciarBandejas() {

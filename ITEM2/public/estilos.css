@@ -60,13 +60,16 @@ main { max-width: 980px; margin: 0 auto; padding: 28px max(16px, env(safe-area-i
 
 .tarjeta, .bloque { background: var(--superficie); border: 1px solid var(--linea); border-radius: 8px; padding: 22px; }
 .login { max-width: 440px; margin: 40px auto; display: grid; gap: 14px; }
+#vista-sin-cuenta { margin-top: 0; }
+#vista-sin-cuenta h2 { font-size: 17px; }
 .bloque { display: grid; gap: 16px; }
 .bloque-cab { display: grid; gap: 4px; max-width: 70ch; }
 
 form { display: grid; gap: 6px; }
 label { font-size: 13px; font-weight: 600; margin-top: 6px; }
-input { font: inherit; color: inherit; background: var(--fondo); border: 1px solid var(--linea); border-radius: 6px; padding: 8px 10px; width: 100%; }
-input:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+.estado-derecho { font-size: 13px; font-weight: 600; color: var(--alerta); min-height: 1em; }
+input, select { font: inherit; color: inherit; background: var(--fondo); border: 1px solid var(--linea); border-radius: 6px; padding: 8px 10px; width: 100%; }
+input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
 
 button, .boton {
   font: inherit; font-weight: 600; cursor: pointer; border-radius: 6px; padding: 8px 14px; margin-top: 8px;

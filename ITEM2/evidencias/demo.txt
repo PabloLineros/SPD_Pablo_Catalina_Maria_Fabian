@@ -28,7 +28,7 @@ Una llave por finalidad, cargada desde el entorno y retirada de process.env:
 
 ▶ Pedido válido: monto calculado en el servidor, solo last4 de la tarjeta
 {
-  "id": "ad14a106-a69b-447a-97ed-969b6370b2aa",
+  "id": "97d605de-26f9-4ab3-ad62-8dc9ebb3a488",
   "total_clp": 49980,
   "estado": "PAGADO",
   "tipoDocumento": "BOLETA",
@@ -44,35 +44,35 @@ Una llave por finalidad, cargada desde el entorno y retirada de process.env:
 ════════════════════════════════════════════════════════════════════════════════
 {
   "tabla": "users",
-  "id": "54a1590f-d383-4a45-9b92-a4d37c1ad81a",
-  "nombre_cifrado": "bceac2b6b76b0f2a917b02a8:65833245d63d220b03728c9360090ac7:a4ac37ca986a9b1eea187a90ea72",
-  "email_cifrado": "65fb9d012f3d823cb559488e:55e857ff5b44da41ef8c6bcc01786d87:0b600acd757f1277f91ba8249d0dc7dade1b3121eb3e95",
+  "id": "0ab31b7f-fe7e-4f90-8d2f-7aa70ece15df",
+  "nombre_cifrado": "274a6f309185067b15e4d033:764e58d926034bd2f21089a91a1b1c0d:c7e5c5cf0f4e1138f0e618433d9d",
+  "email_cifrado": "2ed94e22d68df0b72c753661:c58cae8359a535c2fc4dd0e7b2bca3ae:314bca668c9bcf19395a6fc9141554f28fee020abb3a29",
   "email_hmac": "e5a5e913d026d8ab2149e4b86f3b269db86957ff374553adf1235628c7271226",
-  "telefono_cifrado": "e3f81f5ce1a5f539eee09b0c:408e1c37be00f46c0d41d10921403f49:4de687143ea0b97f179901f0",
-  "direccion_despacho_cifrada": "763d4ee8631cc54eefae17e9:6a7fea2eaf4a8ac490ab903401d4f38b:c3165e64d903667dac04dcb806c1fe0f97eb4196fc025ba847c01c",
+  "telefono_cifrado": "118d00c42c1b4fcdb25bd43f:801e9abfa7e2a4e648e5c84d2c19b9fd:b0c97c2e250c1f658eb737d1",
+  "direccion_despacho_cifrada": "d40903c3ec496c6b386586a1:a994b72169ac39af80af0949ed06b93f:275a4a62614f15fef02c85ccb4e356bbeaab79f23a4644d171b0df",
   "comuna": "Antofagasta",
-  "password_hash": "$2a$12$ToMBLQ/UUR.SiOnJ2.NEOuAwI.xRw0UHN/nPXSWqlROTEALGBRzhm",
+  "password_hash": "$2a$12$4NJE9busIChGjbdHT1LPaeWBPka0/yZOAdNO6Wb7dM66gSfl/jFzm",
   "guardar_medio_pago": true,
-  "token_pago": "tok_norti_vault_da4fdc85ef07e9daba33cdcacd7f04f0",
+  "token_pago": "tok_norti_vault_28654f340914bc5daf681d324ac84932",
   "tarjeta_last4": "1111",
   "tarjeta_marca": "VISA",
-  "mayor_edad_declarado_el": "2026-10-30T21:47:46.110Z",
-  "created_at": "2026-10-30T21:47:46.110Z"
+  "mayor_edad_declarado_el": "2026-11-10T00:49:16.948Z",
+  "created_at": "2026-11-10T00:49:16.948Z"
 }
 {
   "tabla": "orders",
-  "id": "ad14a106-a69b-447a-97ed-969b6370b2aa",
-  "user_id": "54a1590f-d383-4a45-9b92-a4d37c1ad81a",
+  "id": "97d605de-26f9-4ab3-ad62-8dc9ebb3a488",
+  "user_id": "0ab31b7f-fe7e-4f90-8d2f-7aa70ece15df",
   "total_clp": 49980,
-  "transaccion_id": "tx_auth_e07e532a79878645",
-  "codigo_autorizacion": "649123",
+  "transaccion_id": "tx_auth_a1d8cd0925fe146b",
+  "codigo_autorizacion": "426901",
   "tarjeta_last4": "1111",
-  "direccion_envio_cifrada": "ea3e34007970d7558a5b300d:c67072a15495f9ae6729351853fcb844:dc9e70040eeb58c116c6654ea1a79883056a62470b7749a414d315",
+  "direccion_envio_cifrada": "368facf62d5e4a2d54b10313:bc00baddb6594c662aa93d5ec210149d:bbc2d68e32a13e3c5f6d0a823041646056eec47ea465026900aace",
   "comuna_envio": "Antofagasta",
   "tipo_documento": "BOLETA",
   "facturacion_id": null,
   "estado": "PAGADO",
-  "created_at": "2026-10-30T21:47:47.127Z"
+  "created_at": "2026-11-10T00:49:17.849Z"
 }
   password_hash: bcrypt (2a), costo 12 (4096 iteraciones)
 
@@ -86,22 +86,22 @@ Una llave por finalidad, cargada desde el entorno y retirada de process.env:
 ▶ Reseña: en la tabla se guarda HMAC(K_resenas, user_id); el público solo ve el alias
   Fila almacenada:
 {
-  "id": "2c518cb1-0094-40eb-b51e-63f6ee85e37c",
-  "autor_pseudo": "6bc8d6cceaf095087ad69c04a2ef8ecb0d63921522c7cbac9f20a69b873c67d1",
+  "id": "71b23c7c-ac3b-42b1-adb9-c8bb05caff07",
+  "autor_pseudo": "179ac722b520d8c7023d399ba33adb6f828820fbbec5eed632c0dd9a08ae1e96",
   "alias_publico": "ana_p",
-  "producto_id": "4b37d382-55a4-4e20-abf7-722eff496ed5",
+  "producto_id": "3dddacd9-be0f-4b4a-a4db-eea15f398d9f",
   "calificacion": 5,
   "comentario": "&#60;b&#62;Muy bueno&#60;&#47;b&#62;",
-  "created_at": "2026-10-30T21:47:47.130Z"
+  "created_at": "2026-11-10T00:49:17.851Z"
 }
   Vista pública v_resenas_publicas:
 [
   {
-    "producto_id": "4b37d382-55a4-4e20-abf7-722eff496ed5",
+    "producto_id": "3dddacd9-be0f-4b4a-a4db-eea15f398d9f",
     "alias_publico": "ana_p",
     "calificacion": 5,
     "comentario": "&#60;b&#62;Muy bueno&#60;&#47;b&#62;",
-    "fecha": "2026-10-30"
+    "fecha": "2026-11-10"
   }
 ]
 
@@ -112,9 +112,9 @@ Una llave por finalidad, cargada desde el entorno y retirada de process.env:
 }
   Ejemplo de fila en analitica.compras (lo que ve el ANALISTA):
 {
-  "id": "664485e0-5b7f-484d-a9aa-92c4b0b04aee",
-  "cliente_pseudo": "97e99e8a218fdced4a576218514b2b977882988ac65609a0b16ac9e09e0b4dbc",
-  "mes_compra": "2026-10-01",
+  "id": "1587ed4b-2a67-4d95-b8f7-703b8f061080",
+  "cliente_pseudo": "4a72f04ac0be10f38a6cb78c665bc1d8012fc7d49ec110120cb31e3ce106680e",
+  "mes_compra": "2026-11-01",
   "rango_monto": "20-50k",
   "categoria_producto": "VESTUARIO",
   "comuna": "Antofagasta"
@@ -124,7 +124,7 @@ Una llave por finalidad, cargada desde el entorno y retirada de process.env:
 ┌─────────┬───────────────┬──────────────┬────────────────────┬──────────┬─────────┐
 │ (index) │ comuna        │ mes_compra   │ categoria_producto │ clientes │ compras │
 ├─────────┼───────────────┼──────────────┼────────────────────┼──────────┼─────────┤
-│ 0       │ 'Antofagasta' │ '2026-10-01' │ 'HOGAR'            │ 5        │ 5       │
+│ 0       │ 'Antofagasta' │ '2026-11-01' │ 'HOGAR'            │ 5        │ 5       │
 └─────────┴───────────────┴──────────────┴────────────────────┴──────────┴─────────┘
 
 ▶ Invitado: seguimiento por token aleatorio; contacto anonimizado al vencer el plazo
@@ -132,7 +132,7 @@ Una llave por finalidad, cargada desde el entorno y retirada de process.env:
   "estado": "PAGADO",
   "total_clp": 24990,
   "comuna_envio": "Arica",
-  "fecha": "2026-10-30"
+  "fecha": "2026-11-10"
 }
   Job hoy:          {"anonimizados":0}
   Job en 91 días:   {"anonimizados":1}
@@ -147,9 +147,9 @@ Una llave por finalidad, cargada desde el entorno y retirada de process.env:
 ▶ Marketing: solo consentimientos vigentes, identificados por seudónimo de marketing
 [
   {
-    "suscriptor_pseudo": "17189b010887623ceca6956b9b1c2b923be4e637dfeac8c6803c246ab3b39703",
+    "suscriptor_pseudo": "af1e7f51c7d962e9fb95b9c27a9d909f0896383a2f902964a3809de415ec52c2",
     "email": "ana.prueba@ejemplo.test",
-    "token_desuscripcion": "06ead01d-9618-4c89-9fe3-ffccc55730a1"
+    "token_desuscripcion": "7c81044e-1d4e-43d5-809c-623380458801"
   }
 ]
 
@@ -166,7 +166,7 @@ Una llave por finalidad, cargada desde el entorno y retirada de process.env:
   ⛔ ACCESO_DENEGADO          ANALISTA intenta buscar un cliente por email — No tiene permisos para realizar esta operación.
   ✔ PERMITIDO  SOPORTE busca cliente (vista enmascarada)
 {
-  "id": "54a1590f-d383-4a45-9b92-a4d37c1ad81a",
+  "id": "0ab31b7f-fe7e-4f90-8d2f-7aa70ece15df",
   "nombre": "A. P. U.",
   "email": "a***@e***.test",
   "telefono": "*****2222",
@@ -179,7 +179,7 @@ Una llave por finalidad, cargada desde el entorno y retirada de process.env:
   ⛔ ACCESO_DENEGADO          ADMINISTRADOR se auto-asigna OFICIAL_PRIVACIDAD — No tiene permisos para realizar esta operación.
   ✔ PERMITIDO  LOGISTICA genera etiqueta de despacho
 {
-  "ref_envio": "0f51ab47-0e7b-46d4-b51a-0840e00a0ac0",
+  "ref_envio": "e5c1fa25-d300-4f81-bc90-a661261f5a0d",
   "destinatario": "Ana Prueba Uno",
   "direccion": "Calle Ficticia 123, Depto 4",
   "comuna": "Antofagasta"
@@ -211,24 +211,24 @@ Una llave por finalidad, cargada desde el entorno y retirada de process.env:
 ════════════════════════════════════════════════════════════════════════════════
 
 ▶ Últimos registros de actividad (redactados automáticamente)
-  {"ts":"2026-10-30T21:47:50.101Z","nivel":"WARN","evento":"login_fallido","datos":{"cuenta":"23dec91b4273","fallos":1}}
-  {"ts":"2026-10-30T21:47:50.333Z","nivel":"WARN","evento":"login_fallido","datos":{"cuenta":"e5a5e913d026","fallos":1}}
-  {"ts":"2026-10-30T21:47:50.334Z","nivel":"ERROR","evento":"integridad_puntos_comprometida","datos":{"usuarioId":"66fdbdb5-8aaf-48f7-a695-9045fe9811cf"}}
-  {"ts":"2026-10-30T21:47:50.334Z","nivel":"WARN","evento":"alerta_seguridad","datos":{"regla":"INTEGRIDAD_COMPROMETIDA","nivel":"EVENTO_SOSPECHOSO","severidad":"CRITICA"}}
-  {"ts":"2026-10-30T21:47:50.334Z","nivel":"ERROR","evento":"integridad_puntos_comprometida","datos":{"usuarioId":"66fdbdb5-8aaf-48f7-a695-9045fe9811cf"}}
+  {"ts":"2026-11-10T00:49:20.553Z","nivel":"WARN","evento":"login_fallido","datos":{"cuenta":"23dec91b4273","fallos":1}}
+  {"ts":"2026-11-10T00:49:20.777Z","nivel":"WARN","evento":"login_fallido","datos":{"cuenta":"e5a5e913d026","fallos":1}}
+  {"ts":"2026-11-10T00:49:20.779Z","nivel":"ERROR","evento":"integridad_puntos_comprometida","datos":{"usuarioId":"2a0a010c-a205-477b-a161-a36b9ec62ec7"}}
+  {"ts":"2026-11-10T00:49:20.779Z","nivel":"WARN","evento":"alerta_seguridad","datos":{"regla":"INTEGRIDAD_COMPROMETIDA","nivel":"EVENTO_SOSPECHOSO","severidad":"CRITICA"}}
+  {"ts":"2026-11-10T00:49:20.779Z","nivel":"ERROR","evento":"integridad_puntos_comprometida","datos":{"usuarioId":"2a0a010c-a205-477b-a161-a36b9ec62ec7"}}
 
 ▶ Últimas entradas de auditoría
 ┌─────────┬─────────────────┬───────────────────────────────┬─────────────────────────────────────────────────┬─────────────┬────────────────────────────────────────────────────────┐
 │ (index) │ actor_rol       │ accion                        │ recurso                                         │ resultado   │ motivo                                                 │
 ├─────────┼─────────────────┼───────────────────────────────┼─────────────────────────────────────────────────┼─────────────┼────────────────────────────────────────────────────────┤
 │ 0       │ 'CATALOGO'      │ 'auditoria:leer'              │ 'audit_log'                                     │ 'DENEGADO'  │ 'ROL_SIN_PERMISO'                                      │
-│ 1       │ 'ADMINISTRADOR' │ 'roles:gestionar'             │ 'personal:af01257b-3f6a-45fa-9ce1-5664de2fb84f' │ 'PERMITIDO' │ 'asignar rol=ANALISTA'                                 │
+│ 1       │ 'ADMINISTRADOR' │ 'roles:gestionar'             │ 'personal:a9c31123-7adc-4e07-b88c-b20e2ce6e853' │ 'PERMITIDO' │ 'asignar rol=ANALISTA'                                 │
 │ 2       │ 'ANALISTA'      │ 'marketing:exportar'          │ 'v_export_marketing'                            │ 'DENEGADO'  │ 'ROL_SIN_PERMISO'                                      │
 │ 3       │ 'ANONIMO'       │ 'auth:login'                  │ 'cuenta:23dec91b4273'                           │ 'FALLIDO'   │ 'fallos=1'                                             │
 │ 4       │ 'ANONIMO'       │ 'auth:login'                  │ 'cuenta:e5a5e913d026'                           │ 'FALLIDO'   │ 'fallos=1'                                             │
-│ 5       │ 'SISTEMA'       │ 'seguridad:integridad_puntos' │ 'loyalty:66fdbdb5-8aaf-48f7-a695-9045fe9811cf'  │ 'FALLIDO'   │ 'FIRMA_O_HISTORIAL_INCONSISTENTE'                      │
-│ 6       │ 'SISTEMA'       │ 'seguridad:alerta'            │ 'alerta:b4c92830-9458-4010-99ba-0b5e6dba7677'   │ 'EXITO'     │ 'INTEGRIDAD_COMPROMETIDA (EVENTO_SOSPECHOSO, CRITICA)' │
-│ 7       │ 'SISTEMA'       │ 'seguridad:integridad_puntos' │ 'loyalty:66fdbdb5-8aaf-48f7-a695-9045fe9811cf'  │ 'FALLIDO'   │ 'FIRMA_O_HISTORIAL_INCONSISTENTE'                      │
+│ 5       │ 'SISTEMA'       │ 'seguridad:integridad_puntos' │ 'loyalty:2a0a010c-a205-477b-a161-a36b9ec62ec7'  │ 'FALLIDO'   │ 'FIRMA_O_HISTORIAL_INCONSISTENTE'                      │
+│ 6       │ 'SISTEMA'       │ 'seguridad:alerta'            │ 'alerta:f84b5766-ee7a-4a4a-ae73-641c801048fd'   │ 'EXITO'     │ 'INTEGRIDAD_COMPROMETIDA (EVENTO_SOSPECHOSO, CRITICA)' │
+│ 7       │ 'SISTEMA'       │ 'seguridad:integridad_puntos' │ 'loyalty:2a0a010c-a205-477b-a161-a36b9ec62ec7'  │ 'FALLIDO'   │ 'FIRMA_O_HISTORIAL_INCONSISTENTE'                      │
 └─────────┴─────────────────┴───────────────────────────────┴─────────────────────────────────────────────────┴─────────────┴────────────────────────────────────────────────────────┘
 
 Demostración finalizada. Ejecute npm test para la batería completa de pruebas.

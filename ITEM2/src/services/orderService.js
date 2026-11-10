@@ -3,7 +3,7 @@ import { CONFIG } from '../config/env.js';
 import { DB, ROLES_BD } from '../db/repository.js';
 import { encryptField, decryptField, contexto } from '../crypto/cipher.js';
 import { PaymentVault } from '../crypto/tokenization.js';
-import { referenciaAleatoria } from '../crypto/pseudonymization.js';
+import { referenciaAleatoria, indiceCiegoEmail } from '../crypto/pseudonymization.js';
 import { autorizar, PERMISOS } from '../security/rbac.js';
 import { registrarAuditoria } from '../security/audit.js';
 import { errores } from '../security/errors.js';
@@ -161,6 +161,7 @@ export class OrderService {
     bd.insertar('orders_invitado', {
       id,
       token_seguimiento: tokenSeguimiento,
+      email_hmac: indiceCiegoEmail(email),
       nombre_invitado_cifrado: encryptField(nombre, ctx('nombre_invitado_cifrado')),
       email_invitado_cifrado: encryptField(email, ctx('email_invitado_cifrado')),
       telefono_invitado_cifrado: telefono ? encryptField(telefono, ctx('telefono_invitado_cifrado')) : null,

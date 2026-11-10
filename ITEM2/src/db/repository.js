@@ -76,7 +76,7 @@ export const ESQUEMA = Object.freeze({
       rut_facturacion_cifrado: col('cifrado', R),
       razon_social_cifrada: col('cifrado', R),
       direccion_facturacion_cifrada: col('cifrado', R),
-      bloqueado: col('bool', R), created_at: col('fecha', R)
+      bloqueado: col('bool', R), bloqueado_hasta: col('fecha'), created_at: col('fecha', R)
     }
   },
   orders: {
@@ -104,6 +104,7 @@ export const ESQUEMA = Object.freeze({
     columnas: {
       id: col('uuid', R),
       token_seguimiento: col('uuid', R),
+      email_hmac: col('hmac'),                   // índice ciego: permite atender derechos sin cuenta; NULL al anonimizar
       nombre_invitado_cifrado: col('cifrado'),
       email_invitado_cifrado: col('cifrado'),
       telefono_invitado_cifrado: col('cifrado'),
@@ -172,12 +173,19 @@ export const ESQUEMA = Object.freeze({
     }
   },
   solicitudes_derechos: {
+    unicos: ['folio'],
     columnas: {
-      id: col('uuid', R), user_id: col('uuid', R),
-      tipo: col('texto', { req: true, valores: ['ACCESO', 'PORTABILIDAD', 'RECTIFICACION', 'SUPRESION'] }),
+      id: col('uuid', R),
+      folio: col('texto', R),                     // número de seguimiento legible (DER-2026-000001)
+      user_id: col('uuid'),                       // NULL si la presenta alguien sin cuenta
+      titular_ref: col('hmac'),                   // índice ciego del correo (solicitudes sin cuenta)
+      canal: col('texto', { req: true, valores: ['CENTRO_PRIVACIDAD', 'FORMULARIO_SIN_CUENTA'] }),
+      presentada_por: col('texto', { req: true, valores: ['TITULAR'] }),
+      tipo: col('texto', { req: true, valores: ['ACCESO', 'PORTABILIDAD', 'RECTIFICACION', 'SUPRESION', 'OPOSICION', 'BLOQUEO'] }),
       estado: col('texto', { req: true, valores: ['RECIBIDA', 'VERIFICADA', 'EN_EVALUACION', 'CERRADA', 'ANULADA'] }),
-      resultado: col('texto', { valores: ['EJECUTADA', 'RECHAZADA'] }),
+      resultado: col('texto', { valores: ['EJECUTADA', 'PARCIAL', 'RECHAZADA'] }),
       nivel_verificacion: col('texto', R),
+      objeto: col('texto'),                       // tratamiento (oposición) o motivo (bloqueo)
       campos_solicitados: col('texto'),          // nombres de campos a rectificar, nunca sus valores
       cambios_cifrados: col('cifrado'),          // valores propuestos, cifrados; se borran al ejecutar
       fundamento: col('texto'),
@@ -188,8 +196,51 @@ export const ESQUEMA = Object.freeze({
   verificaciones: {
     columnas: {
       id: col('uuid', R), solicitud_id: col('uuid', R), codigo_hmac: col('hmac', R),
-      destino: col('texto', { req: true, valores: ['EMAIL_REGISTRADO', 'EMAIL_NUEVO', 'SOLO_CONTRASENA'] }),
+      destino: col('texto', { req: true, valores: ['EMAIL_REGISTRADO', 'EMAIL_NUEVO', 'SOLO_CONTRASENA', 'EMAIL_INFORMADO'] }),
       expira_el: col('fecha', R), intentos: col('entero', R), usado: col('bool', R)
+    }
+  },
+  // Copias entregadas por acceso/portabilidad: cifradas, de un solo uso y con vencimiento.
+  descargas: {
+    columnas: {
+      id: col('hmac', R),                         // SHA-256 del token de descarga (el token no se guarda)
+      solicitud_id: col('uuid', R), user_id: col('uuid'),
+      contenido_cifrado: col('cifrado', R), expira_el: col('fecha', R), created_at: col('fecha', R)
+    }
+  },
+  // Registro de cada rectificación: valor anterior y nuevo (cifrados), quién y cuándo.
+  rectificaciones: {
+    columnas: {
+      id: col('uuid', R), solicitud_id: col('uuid', R), user_id: col('uuid', R), campo: col('texto', R),
+      valor_anterior_cifrado: col('cifrado'), valor_nuevo_cifrado: col('cifrado'),
+      actor_id: col('texto', R), actor_rol: col('texto', R), created_at: col('fecha', R)
+    }
+  },
+  // Constancia de lo comunicado a terceros (sin datos personales: solo referencias internas).
+  comunicaciones_terceros: {
+    columnas: {
+      id: col('uuid', R),
+      tercero: col('texto', { req: true, valores: ['PASARELA_PAGO', 'PLATAFORMA_CORREO', 'OPERADOR_LOGISTICO'] }),
+      tipo: col('texto', { req: true, valores: ['RECTIFICACION', 'SUPRESION', 'OPOSICION', 'BLOQUEO'] }),
+      referencia: col('texto', R), solicitud_id: col('uuid'), enviado_el: col('fecha', R)
+    }
+  },
+  // Oposición: marca de exclusión por tratamiento, consultada antes de ejecutarlo.
+  oposiciones: {
+    columnas: {
+      id: col('texto', R), user_id: col('uuid', R),
+      tratamiento: col('texto', { req: true, valores: ['ENCUESTAS_SATISFACCION'] }),
+      estado: col('texto', { req: true, valores: ['ACTIVA', 'RETIRADA'] }),
+      desde: col('fecha', R), retirada_el: col('fecha'), solicitud_id: col('uuid')
+    }
+  },
+  // Bloqueo: el dato se conserva pero no se usa salvo para lo estrictamente necesario.
+  bloqueos: {
+    columnas: {
+      id: col('uuid', R), user_id: col('uuid', R),
+      motivo: col('texto', { req: true, valores: ['EXACTITUD_EN_DISPUTA', 'VIGENCIA_DUDOSA'] }),
+      estado: col('texto', { req: true, valores: ['ACTIVO', 'LEVANTADO'] }),
+      desde: col('fecha', R), levantado_el: col('fecha'), causa_levantamiento: col('texto'), solicitud_id: col('uuid')
     }
   },
   // Lápidas de supresión: HMAC del user_id, sin datos personales. Sirven para que ningún proceso
@@ -315,16 +366,17 @@ export const ROLES_BD = Object.freeze({
 // audit_log: la aplicación solo INSERTA; nadie tiene UPDATE; DELETE solo svc_retencion.
 const GRANTS = Object.freeze({
   [ROLES_BD.SVC_APP]: {
-    productos: 'SIU', users: 'SIUD', personal: 'SIU', facturacion: 'SIU', orders: 'SIU', order_items: 'SI',
+    productos: 'SIU', users: 'SIUD', personal: 'SIU', facturacion: 'SIUD', orders: 'SIU', order_items: 'SI',
     orders_invitado: 'SIU', loyalty_accounts: 'SIUD', historial_puntos: 'SID', resenas: 'I',
     suscripciones_marketing: 'SIUD', envios: 'SIU', sesiones: 'SID', audit_log: 'I',
     textos_consentimiento: 'SI', consentimientos: 'SIU', consentimientos_historial: 'SI',
     solicitudes_derechos: 'SIU', verificaciones: 'SIU', supresiones: 'SI',
+    descargas: 'SID', rectificaciones: 'SID', comunicaciones_terceros: 'SI', oposiciones: 'SIUD', bloqueos: 'SIUD',
     alertas: 'I', controles_operacion: 'S'
   },
   [ROLES_BD.SVC_PRIVACIDAD]: { 'pseudo.pseudonimos': 'SID', orders_invitado: 'SU', resenas: 'S' },
   [ROLES_BD.SVC_ETL]: {
-    orders: 'S', order_items: 'S', productos: 'S', historial_puntos: 'S', supresiones: 'S',
+    orders: 'S', order_items: 'S', productos: 'S', historial_puntos: 'S', supresiones: 'S', bloqueos: 'S',
     consentimientos: 'S', textos_consentimiento: 'S',
     'analitica.compras': 'SID', 'analitica.movimientos_puntos': 'SID'
   },
@@ -480,8 +532,10 @@ class Conexion {
       const versiones = t('textos_consentimiento').filter(x => x.finalidad === 'MARKETING_EMAIL')
         .sort((a, b) => a.vigente_desde.localeCompare(b.vigente_desde));
       const vigente = versiones[versiones.length - 1]?.version;
+      // Un titular con tratamiento BLOQUEADO tampoco se exporta, aunque tenga consentimiento.
+      const bloqueados = new Set(t('bloqueos').filter(b => b.estado === 'ACTIVO').map(b => b.user_id));
       const habilitados = new Set(t('consentimientos')
-        .filter(c => c.finalidad === 'MARKETING_EMAIL' && c.estado === 'OTORGADO' && c.version_texto === vigente)
+        .filter(c => c.finalidad === 'MARKETING_EMAIL' && c.estado === 'OTORGADO' && c.version_texto === vigente && !bloqueados.has(c.user_id))
         .map(c => c.user_id));
       return t('suscripciones_marketing')
         .filter(s => habilitados.has(s.user_id))

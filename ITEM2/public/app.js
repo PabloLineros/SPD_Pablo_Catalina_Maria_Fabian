@@ -109,8 +109,10 @@ async function confirmar(ev) {
     const r = await llamar('derechos/confirmar', sesion.usuarioId, solicitudPendiente.id, entrada);
     $('#form-verif').hidden = true;
     $('#form-verif').reset();
-    mostrarResultado(r);
-    if (r.solicitud.tipo === 'SUPRESION' && r.solicitud.resultado === 'EJECUTADA') return salir('Tu cuenta fue eliminada.');
+    // La copia se entrega por un enlace de un solo uso: se descarga una vez y deja de existir.
+    const datos = r.descarga ? await llamar('derechos/descargar', r.descarga.token) : null;
+    mostrarResultado({ solicitud: r.solicitud, datos });
+    if (r.solicitud.tipo === 'SUPRESION' && r.solicitud.resultado !== 'RECHAZADA') return salir(`Tu cuenta fue eliminada. ${r.solicitud.fundamento}`);
     await refrescar();
   } catch (e) {
     avisar(e.codigo === 'CREDENCIALES_INVALIDAS' ? 'No pudimos verificar tu identidad. Revisa la contraseña y el código.' : e.message, true);
@@ -118,9 +120,11 @@ async function confirmar(ev) {
   }
 }
 
+const RESULTADOS = { EJECUTADA: 'realizada', PARCIAL: 'atendida parcialmente', RECHAZADA: 'rechazada' };
+
 function mostrarResultado({ solicitud, datos }) {
   $('#resultado').hidden = false;
-  $('#resultado-titulo').textContent = `${solicitud.tipo}: ${solicitud.resultado === 'EJECUTADA' ? 'realizada' : 'rechazada'}`;
+  $('#resultado-titulo').textContent = `${solicitud.tipo} (folio ${solicitud.folio}): ${RESULTADOS[solicitud.resultado]}`;
   $('#resultado-texto').textContent = solicitud.fundamento ?? 'Tu solicitud fue atendida.';
   const pre = $('#resultado-json');
   const enlace = $('#resultado-descarga');
@@ -136,11 +140,21 @@ function mostrarResultado({ solicitud, datos }) {
 
 // ---------- Carga de datos ----------
 async function refrescar() {
-  const [estado, historial, solicitudes] = await Promise.all([
+  const [estado, historial, solicitudes, restricciones] = await Promise.all([
     llamar('consentimiento/estado', sesion.usuarioId),
     llamar('consentimiento/historial', sesion.usuarioId),
-    llamar('derechos/misSolicitudes', sesion.usuarioId)
+    llamar('derechos/misSolicitudes', sesion.usuarioId),
+    llamar('derechos/misRestricciones', sesion.usuarioId)
   ]);
+  const oposicion = restricciones.oposiciones.find(o => o.tratamiento === 'ENCUESTAS_SATISFACCION');
+  $('#op-estado').textContent = oposicion.activa ? 'Activa: no recibes encuestas.' : '';
+  $('#btn-oposicion').textContent = oposicion.activa ? 'Volver a recibir encuestas' : 'Oponerme';
+  $('#btn-oposicion').dataset.activa = String(oposicion.activa);
+  $('#bl-estado').textContent = restricciones.bloqueo ? `Bloqueados desde el ${fecha(restricciones.bloqueo.desde)}` : '';
+  $('#bl-motivo').hidden = Boolean(restricciones.bloqueo);
+  $('label[for="bl-motivo"]').hidden = Boolean(restricciones.bloqueo);
+  $('#btn-bloqueo').textContent = restricciones.bloqueo ? 'Levantar el bloqueo' : 'Bloquear mis datos';
+  $('#btn-bloqueo').dataset.activo = String(Boolean(restricciones.bloqueo));
   $('#lista-consent').replaceChildren(...estado.requierenConsentimiento.map(tarjetaConsentimiento));
   $('#lista-otros').replaceChildren(...estado.otrasBases.map(o =>
     el('li', {}, el('strong', {}, o.nombre), el('span', { class: 'base' }, o.base.replaceAll('_', ' ').toLowerCase()))));
@@ -150,8 +164,8 @@ async function refrescar() {
   $('#tabla-hist tbody').replaceChildren(...(filasHist.length ? filasHist : [el('tr', {}, el('td', { colspan: 5, class: 'vacio' }, 'Aún no hay cambios registrados.'))]));
 
   const filasSol = solicitudes.slice().reverse().map(s => el('tr', {},
-    el('td', {}, s.tipo), el('td', {}, s.estado), el('td', {}, s.resultado ?? '—'), el('td', {}, fecha(s.recibida_el)), el('td', {}, fecha(s.plazo_vence_el)), el('td', {}, fecha(s.cerrada_el))));
-  $('#tabla-sol tbody').replaceChildren(...(filasSol.length ? filasSol : [el('tr', {}, el('td', { colspan: 6, class: 'vacio' }, 'No has presentado solicitudes.'))]));
+    el('td', {}, s.folio), el('td', {}, s.tipo), el('td', {}, s.estado), el('td', {}, s.resultado ?? '—'), el('td', {}, fecha(s.recibida_el)), el('td', {}, fecha(s.plazo_vence_el)), el('td', {}, fecha(s.cerrada_el))));
+  $('#tabla-sol tbody').replaceChildren(...(filasSol.length ? filasSol : [el('tr', {}, el('td', { colspan: 7, class: 'vacio' }, 'No has presentado solicitudes.'))]));
 
   await refrescarCorreo();
 }
@@ -174,6 +188,7 @@ async function ingresar(ev) {
     if (r.rol !== 'CLIENTE') throw new Error('El Centro de privacidad es para clientes.');
     Object.assign(sesion, { token: r.token, usuarioId: r.usuarioId });
     $('#vista-login').hidden = true;
+    $('#vista-sin-cuenta').hidden = true;
     $('#vista-centro').hidden = false;
     $('#btn-salir').hidden = false;
     await refrescar();
@@ -189,6 +204,7 @@ async function salir(mensaje) {
   $('#vista-centro').hidden = true;
   $('#btn-salir').hidden = true;
   $('#vista-login').hidden = false;
+  $('#vista-sin-cuenta').hidden = false;
   if (typeof mensaje === 'string') {
     $('#login-error').textContent = mensaje;
     $('#login-error').hidden = false;
@@ -206,6 +222,77 @@ for (const b of document.querySelectorAll('.derechos button[data-tipo]')) {
     return solicitar({ tipo: b.dataset.tipo });
   });
 }
+$('#btn-oposicion').addEventListener('click', async () => {
+  if ($('#btn-oposicion').dataset.activa === 'true') {
+    try {
+      await llamar('derechos/retirarOposicion', sesion.usuarioId, { tratamiento: 'ENCUESTAS_SATISFACCION' });
+      avisar('Volverás a recibir la encuesta de satisfacción.');
+      await refrescar();
+    } catch (e) { avisar(e.message, true); }
+    return;
+  }
+  await solicitar({ tipo: 'OPOSICION', tratamiento: 'ENCUESTAS_SATISFACCION' });
+});
+
+$('#btn-bloqueo').addEventListener('click', async () => {
+  if ($('#btn-bloqueo').dataset.activo === 'true') {
+    try {
+      await llamar('derechos/levantarBloqueo', sesion.usuarioId);
+      avisar('Bloqueo levantado: tus datos vuelven a usarse según tus consentimientos.');
+      await refrescar();
+    } catch (e) { avisar(e.message, true); }
+    return;
+  }
+  await solicitar({ tipo: 'BLOQUEO', motivo: $('#bl-motivo').value });
+});
+
+// ---------- Canal sin cuenta ----------
+let solicitudSinCuenta = null;
+
+async function refrescarCorreoSinCuenta() {
+  const r = await fetch(`/api/dev/bandeja-publica?email=${encodeURIComponent($('#sc-email').value)}`);
+  const cuerpo = await r.json();
+  if (!cuerpo.ok) return;
+  $('#sc-correo-bloque').hidden = false;
+  $('#sc-correo').replaceChildren(...cuerpo.data.slice(0, 3).map(m => el('li', {}, el('strong', {}, m.asunto), el('span', {}, m.cuerpo), el('span', { class: 'cuando' }, fecha(m.enviado_el)))));
+}
+
+$('#form-sin-cuenta').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  $('#sc-resultado').hidden = true;
+  try {
+    solicitudSinCuenta = await llamar('derechos/solicitarSinCuenta', { email: $('#sc-email').value, tipo: $('#sc-tipo').value });
+    $('#sc-mensaje').textContent = `Folio ${solicitudSinCuenta.folio}. ${solicitudSinCuenta.mensaje}`;
+    $('#form-sin-cuenta-codigo').hidden = false;
+    $('#sc-codigo').focus();
+    await refrescarCorreoSinCuenta();
+  } catch (e) {
+    $('#sc-mensaje').textContent = e.message;
+    $('#form-sin-cuenta-codigo').hidden = false;
+  }
+});
+
+$('#form-sin-cuenta-codigo').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  try {
+    const r = await llamar('derechos/confirmarSinCuenta', { solicitudId: solicitudSinCuenta.id, codigo: $('#sc-codigo').value.trim() });
+    $('#form-sin-cuenta-codigo').hidden = true;
+    $('#form-sin-cuenta-codigo').reset();
+    $('#sc-resultado').hidden = false;
+    $('#sc-titulo').textContent = `${r.solicitud.tipo} (folio ${r.solicitud.folio}): ${RESULTADOS[r.solicitud.resultado]}`;
+    $('#sc-texto').textContent = r.solicitud.fundamento;
+    $('#sc-descarga').hidden = !r.descarga;
+    if (r.descarga) {
+      const datos = await llamar('derechos/descargarSinCuenta', r.descarga.token);
+      const enlace = $('#sc-descarga');
+      enlace.href = URL.createObjectURL(new Blob([JSON.stringify(datos, null, 2)], { type: 'application/json' }));
+      enlace.download = `nortishop-${r.solicitud.folio}.json`;
+    }
+  } catch (e) {
+    $('#sc-mensaje').textContent = e.codigo === 'CREDENCIALES_INVALIDAS' ? 'El código no es correcto. Revisa tu correo e inténtalo de nuevo.' : e.message;
+  }
+});
+
 $('#form-rect').addEventListener('submit', (ev) => {
   ev.preventDefault();
   const cambios = {};

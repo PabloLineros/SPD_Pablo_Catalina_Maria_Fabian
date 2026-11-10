@@ -5,6 +5,7 @@ import { registrarAuditoria } from '../security/audit.js';
 import { errores } from '../security/errors.js';
 import { validar } from '../security/validation.js';
 import { fechaRetencion } from './orderService.js';
+import { enviarEncuestaSatisfaccion } from './restrictionService.js';
 
 /**
  * Logística y operador de despacho.
@@ -71,9 +72,11 @@ export class LogisticsService {
       // Inicia el plazo de conservación del contacto del invitado.
       cambios.eliminar_contacto_desde = fechaRetencion();
     }
-    bd.actualizar(tabla, envio.order_id, cambios);
+    const pedido = bd.actualizar(tabla, envio.order_id, cambios);
 
     registrarAuditoria({ sesion, accion: 'envios:estado', recurso: `envio:${ref}`, resultado: 'PERMITIDO', motivo: nuevoEstado });
+    // Tratamiento oponible: la encuesta solo se envía si no hay oposición ni bloqueo.
+    if (estadoPedido === 'ENTREGADO' && tabla === 'orders') enviarEncuestaSatisfaccion(pedido.user_id, pedido.id);
     return { ref_envio: ref, estado_envio: nuevoEstado };
   }
 }

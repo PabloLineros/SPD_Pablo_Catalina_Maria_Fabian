@@ -28,6 +28,33 @@
       <p id="login-error" class="error" role="alert" hidden></p>
     </section>
 
+    <section id="vista-sin-cuenta" class="tarjeta login">
+      <h2>¿Compraste sin cuenta o ya no tienes una?</h2>
+      <p class="tenue">Puedes pedir una copia de tus datos o que los eliminemos. Para confirmar que eres tú, te enviaremos un código al correo que usaste.</p>
+      <form id="form-sin-cuenta">
+        <label for="sc-email">Correo</label>
+        <input id="sc-email" type="email" autocomplete="email" required value="invitada@ejemplo.test">
+        <label for="sc-tipo">Solicitud</label>
+        <select id="sc-tipo"><option value="ACCESO">Recibir una copia de mis datos</option><option value="SUPRESION">Eliminar mis datos</option></select>
+        <button type="submit">Enviar solicitud</button>
+      </form>
+      <form id="form-sin-cuenta-codigo" hidden>
+        <p id="sc-mensaje" class="tenue"></p>
+        <label for="sc-codigo">Código de 6 dígitos</label>
+        <input id="sc-codigo" inputmode="numeric" pattern="\d{6}" maxlength="6" required>
+        <button type="submit" class="primario">Confirmar</button>
+      </form>
+      <div id="sc-resultado" class="resultado" hidden>
+        <h3 id="sc-titulo"></h3>
+        <p id="sc-texto"></p>
+        <a id="sc-descarga" class="boton" hidden>Descargar JSON</a>
+      </div>
+      <div id="sc-correo-bloque" hidden>
+        <h3 class="subt">Correo recibido <span class="etiqueta">simulado</span></h3>
+        <ul id="sc-correo" class="lista-correo"></ul>
+      </div>
+    </section>
+
     <div id="vista-centro" hidden>
       <p id="aviso" class="aviso" role="status" hidden></p>
 
@@ -77,6 +104,18 @@
               <button type="submit">Solicitar corrección</button>
             </form>
           </article>
+          <article class="derecho">
+            <h3>Oposición</h3><p>Deja de recibir la encuesta de satisfacción después de cada entrega. El resto del servicio no cambia.</p>
+            <p id="op-estado" class="estado-derecho"></p>
+            <button id="btn-oposicion">Oponerme</button>
+          </article>
+          <article class="derecho">
+            <h3>Bloqueo</h3><p>Si tus datos no son exactos o están desactualizados, los conservamos pero dejamos de usarlos mientras se aclara.</p>
+            <label for="bl-motivo">Motivo</label>
+            <select id="bl-motivo"><option value="EXACTITUD_EN_DISPUTA">Mis datos no son exactos</option><option value="VIGENCIA_DUDOSA">Mis datos podrían estar desactualizados</option></select>
+            <p id="bl-estado" class="estado-derecho"></p>
+            <button id="btn-bloqueo">Bloquear mis datos</button>
+          </article>
           <article class="derecho peligro">
             <h3>Supresión</h3><p>Elimina tu cuenta. Conservaremos bloqueados solo los documentos tributarios que la ley exige guardar.</p>
             <label for="sup-confirma">Escribe ELIMINAR para continuar</label>
@@ -101,7 +140,7 @@
         </div>
 
         <h3 class="subt">Tus solicitudes</h3>
-        <div class="tabla-scroll"><table id="tabla-sol"><thead><tr><th>Tipo</th><th>Estado</th><th>Resultado</th><th>Recibida</th><th>Plazo de respuesta</th><th>Cerrada</th></tr></thead><tbody></tbody></table></div>
+        <div class="tabla-scroll"><table id="tabla-sol"><thead><tr><th>Folio</th><th>Tipo</th><th>Estado</th><th>Resultado</th><th>Recibida</th><th>Plazo de respuesta</th><th>Cerrada</th></tr></thead><tbody></tbody></table></div>
       </section>
 
       <section class="bloque correo" aria-labelledby="t-correo">

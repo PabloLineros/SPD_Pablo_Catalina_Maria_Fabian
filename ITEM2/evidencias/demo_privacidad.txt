@@ -9,9 +9,9 @@ Integrantes: Catalina Toledo | María Gerónimo | Pablo Lineros | Fabián Salina
 ┌─────────┬──────────────────────┬────────────┬─────────────────┬──────────────────┬───────────────────────┬──────────┐
 │ (index) │ finalidad            │ estado     │ version_vigente │ version_aceptada │ otorgado              │ revocado │
 ├─────────┼──────────────────────┼────────────┼─────────────────┼──────────────────┼───────────────────────┼──────────┤
-│ 0       │ 'MARKETING_EMAIL'    │ 'OTORGADO' │ '2.0'           │ '2.0'            │ '2026-10-30 21:47:54' │ '—'      │
-│ 1       │ 'GUARDAR_MEDIO_PAGO' │ 'OTORGADO' │ '1.0'           │ '1.0'            │ '2026-10-30 21:47:54' │ '—'      │
-│ 2       │ 'ANALITICA_COMPRAS'  │ 'OTORGADO' │ '1.0'           │ '1.0'            │ '2026-10-30 21:47:54' │ '—'      │
+│ 0       │ 'MARKETING_EMAIL'    │ 'OTORGADO' │ '2.0'           │ '2.0'            │ '2026-11-10 00:48:59' │ '—'      │
+│ 1       │ 'GUARDAR_MEDIO_PAGO' │ 'OTORGADO' │ '1.0'           │ '1.0'            │ '2026-11-10 00:48:59' │ '—'      │
+│ 2       │ 'ANALITICA_COMPRAS'  │ 'OTORGADO' │ '1.0'           │ '1.0'            │ '2026-11-10 00:48:59' │ '—'      │
 └─────────┴──────────────────────┴────────────┴─────────────────┴──────────────────┴───────────────────────┴──────────┘
 
 ▶ Ana revoca MARKETING_EMAIL: efecto inmediato y solo sobre esa finalidad
@@ -19,15 +19,15 @@ Integrantes: Catalina Toledo | María Gerónimo | Pablo Lineros | Fabián Salina
 {
   "finalidad": "MARKETING_EMAIL",
   "estado": "REVOCADO",
-  "revocado_el": "2026-10-30T21:47:55.471Z"
+  "revocado_el": "2026-11-10T00:48:59.854Z"
 }
   Suscriptores exportables después: 0
 ┌─────────┬──────────────────────┬────────────┬─────────────────┬──────────────────┬───────────────────────┬───────────────────────┐
 │ (index) │ finalidad            │ estado     │ version_vigente │ version_aceptada │ otorgado              │ revocado              │
 ├─────────┼──────────────────────┼────────────┼─────────────────┼──────────────────┼───────────────────────┼───────────────────────┤
-│ 0       │ 'MARKETING_EMAIL'    │ 'REVOCADO' │ '2.0'           │ '2.0'            │ '2026-10-30 21:47:54' │ '2026-10-30 21:47:55' │
-│ 1       │ 'GUARDAR_MEDIO_PAGO' │ 'OTORGADO' │ '1.0'           │ '1.0'            │ '2026-10-30 21:47:54' │ '—'                   │
-│ 2       │ 'ANALITICA_COMPRAS'  │ 'OTORGADO' │ '1.0'           │ '1.0'            │ '2026-10-30 21:47:54' │ '—'                   │
+│ 0       │ 'MARKETING_EMAIL'    │ 'REVOCADO' │ '2.0'           │ '2.0'            │ '2026-11-10 00:48:59' │ '2026-11-10 00:48:59' │
+│ 1       │ 'GUARDAR_MEDIO_PAGO' │ 'OTORGADO' │ '1.0'           │ '1.0'            │ '2026-11-10 00:48:59' │ '—'                   │
+│ 2       │ 'ANALITICA_COMPRAS'  │ 'OTORGADO' │ '1.0'           │ '1.0'            │ '2026-11-10 00:48:59' │ '—'                   │
 └─────────┴──────────────────────┴────────────┴─────────────────┴──────────────────┴───────────────────────┴───────────────────────┘
 
 ▶ El Oficial de Privacidad publica una nueva versión del texto de ANALITICA_COMPRAS
@@ -40,9 +40,9 @@ Integrantes: Catalina Toledo | María Gerónimo | Pablo Lineros | Fabián Salina
 ┌─────────┬──────────────────────┬───────────────────────┬─────────────────┬──────────────────┬───────────────────────┬───────────────────────┐
 │ (index) │ finalidad            │ estado                │ version_vigente │ version_aceptada │ otorgado              │ revocado              │
 ├─────────┼──────────────────────┼───────────────────────┼─────────────────┼──────────────────┼───────────────────────┼───────────────────────┤
-│ 0       │ 'MARKETING_EMAIL'    │ 'REVOCADO'            │ '2.0'           │ '2.0'            │ '2026-10-30 21:47:54' │ '2026-10-30 21:47:55' │
-│ 1       │ 'GUARDAR_MEDIO_PAGO' │ 'OTORGADO'            │ '1.0'           │ '1.0'            │ '2026-10-30 21:47:54' │ '—'                   │
-│ 2       │ 'ANALITICA_COMPRAS'  │ 'REQUIERE_RENOVACION' │ '2.0'           │ '1.0'            │ '2026-10-30 21:47:54' │ '—'                   │
+│ 0       │ 'MARKETING_EMAIL'    │ 'REVOCADO'            │ '2.0'           │ '2.0'            │ '2026-11-10 00:48:59' │ '2026-11-10 00:48:59' │
+│ 1       │ 'GUARDAR_MEDIO_PAGO' │ 'OTORGADO'            │ '1.0'           │ '1.0'            │ '2026-11-10 00:48:59' │ '—'                   │
+│ 2       │ 'ANALITICA_COMPRAS'  │ 'REQUIERE_RENOVACION' │ '2.0'           │ '1.0'            │ '2026-11-10 00:48:59' │ '—'                   │
 └─────────┴──────────────────────┴───────────────────────┴─────────────────┴──────────────────┴───────────────────────┴───────────────────────┘
   ⛔ CONFLICTO                Ana intenta aceptar con la versión antigua (1.0) — El texto de esta finalidad cambió. Revise la versión vigente antes de aceptarla.
   ✔ PERMITIDO  Ana acepta la versión vigente (2.0)
@@ -51,11 +51,11 @@ Integrantes: Catalina Toledo | María Gerónimo | Pablo Lineros | Fabián Salina
 ┌─────────┬──────────────────────┬────────────┬───────────────┬─────────────────────┬───────────────────────┐
 │ (index) │ finalidad            │ accion     │ version_texto │ canal               │ ocurrido_el           │
 ├─────────┼──────────────────────┼────────────┼───────────────┼─────────────────────┼───────────────────────┤
-│ 0       │ 'GUARDAR_MEDIO_PAGO' │ 'OTORGADO' │ '1.0'         │ 'REGISTRO'          │ '2026-10-30 21:47:54' │
-│ 1       │ 'MARKETING_EMAIL'    │ 'OTORGADO' │ '2.0'         │ 'REGISTRO'          │ '2026-10-30 21:47:54' │
-│ 2       │ 'ANALITICA_COMPRAS'  │ 'OTORGADO' │ '1.0'         │ 'REGISTRO'          │ '2026-10-30 21:47:54' │
-│ 3       │ 'MARKETING_EMAIL'    │ 'REVOCADO' │ '2.0'         │ 'CENTRO_PRIVACIDAD' │ '2026-10-30 21:47:55' │
-│ 4       │ 'ANALITICA_COMPRAS'  │ 'RENOVADO' │ '2.0'         │ 'CENTRO_PRIVACIDAD' │ '2026-10-30 21:47:55' │
+│ 0       │ 'GUARDAR_MEDIO_PAGO' │ 'OTORGADO' │ '1.0'         │ 'REGISTRO'          │ '2026-11-10 00:48:59' │
+│ 1       │ 'MARKETING_EMAIL'    │ 'OTORGADO' │ '2.0'         │ 'REGISTRO'          │ '2026-11-10 00:48:59' │
+│ 2       │ 'ANALITICA_COMPRAS'  │ 'OTORGADO' │ '1.0'         │ 'REGISTRO'          │ '2026-11-10 00:48:59' │
+│ 3       │ 'MARKETING_EMAIL'    │ 'REVOCADO' │ '2.0'         │ 'CENTRO_PRIVACIDAD' │ '2026-11-10 00:48:59' │
+│ 4       │ 'ANALITICA_COMPRAS'  │ 'RENOVADO' │ '2.0'         │ 'CENTRO_PRIVACIDAD' │ '2026-11-10 00:48:59' │
 └─────────┴──────────────────────┴────────────┴───────────────┴─────────────────────┴───────────────────────┘
 
 ▶ Menores de edad: NortiShop no ofrece cuentas a menores
@@ -63,167 +63,215 @@ Integrantes: Catalina Toledo | María Gerónimo | Pablo Lineros | Fabián Salina
   ⛔ CAMPO_NO_PERMITIDO       Registro enviando fecha de nacimiento — Campos no permitidos por la política de minimización: fecha_nacimiento.
 
 ════════════════════════════════════════════════════════════════════════════════
- 2. Ejercicio de derechos
+ 2. Ejercicio de derechos (actividad PR-05: puntos 1 a 7)
 ════════════════════════════════════════════════════════════════════════════════
 
-▶ Acceso: solicitud, verificación con contraseña + código al correo registrado, copia estructurada
+▶ 1-2. Canal con folio + verificación: un solicitante NO verificado no obtiene nada
 {
-  "id": "17d0b5f1-b1ea-4b5e-8d55-3b7eb262ff60",
+  "folio": "DER-2026-000001",
+  "canal": "CENTRO_PRIVACIDAD",
+  "presentada_por": "TITULAR",
   "estado": "RECIBIDA",
-  "recibida_el": "2026-10-30T21:47:55.483Z",
-  "plazo_vence_el": "2026-11-29T21:47:55.483Z",
+  "recibida_el": "2026-11-10T00:48:59.866Z",
+  "plazo_vence_el": "2026-12-10T00:48:59.866Z",
   "verificacion": {
     "requiereContrasena": true,
     "requiereCodigo": true,
     "codigoEnviadoA": "a***@e***.test"
   }
 }
-  Correo recibido (simulado): "Tu código para confirmar la solicitud de acceso es 142914. Vence en 10 minutos. Si no hiciste esta solicitud, ignora este mensaje y cambia tu contraseña."
-  ⛔ CREDENCIALES_INVALIDAS   Confirmar con código incorrecto — No fue posible verificar su identidad.
+  Correo recibido (simulado): "Tu código para confirmar la solicitud de acceso (folio DER-2026-000001) es 742801. Vence en 10 minutos. Si no hiciste esta solicitud, ignora este mensaje."
+  ⛔ CREDENCIALES_INVALIDAS   Confirmar con contraseña y código incorrectos (no verificado) — No fue posible verificar su identidad.
+  ⛔ ACCESO_DENEGADO          Otro cliente intenta confirmar la solicitud de Ana — No tiene permisos para realizar esta operación.
+
+▶ 3. Acceso: enlace de descarga temporal y de un solo uso; datos de todas las fuentes, con origen y finalidad
 {
-  "id": "17d0b5f1-b1ea-4b5e-8d55-3b7eb262ff60",
-  "tipo": "ACCESO",
-  "estado": "CERRADA",
-  "resultado": "EJECUTADA",
-  "campos_solicitados": null,
-  "nivel_verificacion": "CLAVE+CODIGO_EMAIL_REGISTRADO",
-  "fundamento": null,
-  "recibida_el": "2026-10-30T21:47:55.483Z",
-  "verificada_el": "2026-10-30T21:47:55.956Z",
-  "evaluada_el": "2026-10-30T21:47:55.956Z",
-  "resuelta_el": "2026-10-30T21:47:55.956Z",
-  "cerrada_el": "2026-10-30T21:47:55.956Z",
-  "plazo_vence_el": "2026-11-29T21:47:55.483Z"
+  "solicitud": {
+    "folio": "DER-2026-000001",
+    "estado": "CERRADA",
+    "resultado": "EJECUTADA",
+    "fundamento": "Su copia está lista para descargar una sola vez antes del 2026-11-11 00:49 UTC."
+  },
+  "descarga": {
+    "token": "F9aSDKNo…",
+    "expira_el": "2026-11-11T00:49:00.317Z",
+    "formato": "application/json",
+    "un_solo_uso": true
+  }
 }
-  Secciones de la copia entregada: formato, tipo, generado_el, titular_id, datos_personales, pedidos, datos_facturacion, nortipuntos, resenas, consentimientos, solicitudes_de_derechos, informacion_del_tratamiento
+  ⛔ NO_ENCONTRADO            Segunda descarga con el mismo enlace — Descarga (ya usada o vencida) no encontrado.
+  Secciones de la copia: formato, tipo, generado_el, titular_id, datos_personales, pedidos, datos_facturacion, nortipuntos, resenas, origen_y_finalidad, consentimientos, rectificaciones, oposiciones, bloqueos, solicitudes_de_derechos, informacion_del_tratamiento
+┌─────────┬────────────────────────────────────┬───────────┐
+│ (index) │ descripcion                        │ registros │
+├─────────┼────────────────────────────────────┼───────────┤
+│ 0       │ 'Cuenta y datos de contacto'       │ 1         │
+│ 1       │ 'Pedidos'                          │ 1         │
+│ 2       │ 'Productos de cada pedido'         │ 1         │
+│ 3       │ 'Estado de los envíos'             │ 1         │
+│ 4       │ 'Saldo de NortiPuntos'             │ 1         │
+│ 5       │ 'Movimientos de NortiPuntos'       │ 2         │
+│ 6       │ 'Estado de sus consentimientos'    │ 3         │
+│ 7       │ 'Historial de sus consentimientos' │ 5         │
+│ 8       │ 'Sus solicitudes de derechos'      │ 1         │
+│ 9       │ 'Sesiones abiertas'                │ 1         │
+└─────────┴────────────────────────────────────┴───────────┘
 {
-  "datos_personales": {
-    "nombre": "Ana Prueba Uno",
-    "email": "ana.prueba@ejemplo.test",
-    "telefono": "+56911112222",
-    "direccion_despacho": "Calle Ficticia 123, Depto 4",
-    "comuna": "Antofagasta",
-    "mayor_de_edad_declarado_el": "2026-10-30T21:47:54.722Z",
-    "cuenta_creada_el": "2026-10-30T21:47:54.723Z",
+  "origen_y_finalidad": {
+    "datos_personales": {
+      "origen": "Entregado por el titular",
+      "finalidad": "Gestión de la cuenta, compras y despacho"
+    },
     "medio_pago_guardado": {
-      "marca": "VISA",
-      "ultimos_4": "1111"
+      "origen": "Recibido de la pasarela de pago",
+      "finalidad": "Pagar futuras compras (consentimiento GUARDAR_MEDIO_PAGO)"
+    },
+    "pedidos": {
+      "origen": "Entregado por el titular (productos) y Generado por NortiShop al usar el servicio (estado, totales)",
+      "finalidad": "Ejecución del contrato de compraventa y despacho"
+    },
+    "datos_facturacion": {
+      "origen": "Entregado por el titular",
+      "finalidad": "Emisión de facturas (obligación legal)"
+    },
+    "nortipuntos": {
+      "origen": "Generado por NortiShop al usar el servicio",
+      "finalidad": "Programa de fidelización"
+    },
+    "resenas": {
+      "origen": "Entregado por el titular",
+      "finalidad": "Publicación de reseñas con alias"
     }
   },
-  "pedidos": [
+  "destinatarios": [
     {
-      "id": "b48c2f10-2b1e-429c-ade5-15e9ef8de933",
-      "fecha": "2026-10-30T21:47:55.482Z",
-      "estado": "PAGADO",
-      "total_clp": 24990
+      "tercero": "Pasarela de pago",
+      "datos": "Número de tarjeta, vencimiento y titular (NortiShop solo guarda un token y los últimos 4 dígitos)"
+    },
+    {
+      "tercero": "Operador logístico",
+      "datos": "Nombre, dirección y comuna de despacho, con una referencia de envío aleatoria"
     }
   ]
 }
 
-▶ Rectificación: dirección inválida rechazada; válida propagada al pedido no despachado
+▶ 4. Rectificación: valor anterior y nuevo (cifrados), quién y cuándo; aviso a terceros
   ⛔ DATO_INVALIDO            Solicitar teléfono con formato inválido — telefono debe ser un móvil chileno (+56 9 XXXX XXXX).
-  Verificación requerida: {"requiereContrasena":true,"requiereCodigo":false,"codigoEnviadoA":null}
+"Se corrigió: direccionDespacho. Actualizado también en 1 registro(s) relacionado(s) (pedidos no despachados, lista de envío). Se comunicó la corrección a: OPERADOR_LOGISTICO."
+  Fila guardada en rectificaciones (lo que ve un atacante con acceso a la BD):
 {
-  "id": "6caa18ca-9d96-4d68-88ed-d8873d05e33a",
-  "tipo": "RECTIFICACION",
-  "estado": "CERRADA",
-  "resultado": "EJECUTADA",
-  "campos_solicitados": [
-    "direccionDespacho",
-    "comuna"
-  ],
-  "nivel_verificacion": "CLAVE",
-  "fundamento": "Actualizado también en: orders.",
-  "recibida_el": "2026-10-30T21:47:55.957Z",
-  "verificada_el": "2026-10-30T21:47:56.191Z",
-  "evaluada_el": "2026-10-30T21:47:56.191Z",
-  "resuelta_el": "2026-10-30T21:47:56.192Z",
-  "cerrada_el": "2026-10-30T21:47:56.192Z",
-  "plazo_vence_el": "2026-11-29T21:47:55.957Z"
+  "campo": "direccionDespacho",
+  "valor_anterior_cifrado": "06dfe1188c03c2ca1116454d:887a33085e6d4f1…",
+  "valor_nuevo_cifrado": "115344aafb9a66762bc3b8a9:7b43ab849891ae5…",
+  "actor_id": "a7ef39b6-98dd-4569-a342-5006638f42f4",
+  "actor_rol": "CLIENTE",
+  "created_at": "2026-11-10T00:49:00.543Z"
 }
+  Lo que el titular ve en su copia de acceso:
+[
+  {
+    "campo": "direccionDespacho",
+    "valor_anterior": "Calle Ficticia 123, Depto 4",
+    "valor_nuevo": "Nueva Calle Ficticia 777",
+    "fecha": "2026-11-10T00:49:00.543Z"
+  }
+]
 
-▶ Supresión: rechazo fundamentado mientras hay un pedido en curso
+▶ 5. Supresión: qué se elimina, qué se bloquea por ley y hasta cuándo, y a quién se propaga
+"La cuenta tiene 1 pedido(s) en curso. Sus datos son necesarios para cumplir el contrato (entrega); podrá solicitar la supresión cuando finalicen."
 {
-  "id": "de7b2deb-5bf6-4c3d-8d27-e65bf3c22f5d",
-  "tipo": "SUPRESION",
-  "estado": "CERRADA",
-  "resultado": "RECHAZADA",
-  "campos_solicitados": null,
-  "nivel_verificacion": "CLAVE+CODIGO_EMAIL_REGISTRADO",
-  "fundamento": "La cuenta tiene 1 pedido(s) en curso. Sus datos son necesarios para cumplir el contrato (entrega); podrá solicitar la supresión cuando finalicen.",
-  "recibida_el": "2026-10-30T21:47:56.192Z",
-  "verificada_el": "2026-10-30T21:47:56.425Z",
-  "evaluada_el": "2026-10-30T21:47:56.426Z",
-  "resuelta_el": "2026-10-30T21:47:56.426Z",
-  "cerrada_el": "2026-10-30T21:47:56.426Z",
-  "plazo_vence_el": "2026-11-29T21:47:56.192Z"
+  "folio": "DER-2026-000005",
+  "resultado": "PARCIAL",
+  "fundamento": "Se eliminaron su cuenta, datos de contacto y dirección, puntos, suscripciones, medio de pago guardado, sesiones, copias exportadas y seudónimos. Se conservan BLOQUEADOS 1 documento(s) tributario(s) y los montos de 1 pedido(s), sin datos de contacto, solo para cumplir la obligación tributaria (Código Tributario, art. 17) hasta el 2032-11-10; después se eliminan. Se comunicó la supresión a: PASARELA_PAGO, PLATAFORMA_CORREO. Los respaldos se sobrescriben en un máximo de 35 días; si se restaura uno, la supresión se vuelve a aplicar."
 }
+┌─────────┬──────────────────────┬─────────────────┬──────────────────────────────────────────────────────┐
+│ (index) │ tercero              │ tipo            │ referencia                                           │
+├─────────┼──────────────────────┼─────────────────┼──────────────────────────────────────────────────────┤
+│ 0       │ 'OPERADOR_LOGISTICO' │ 'RECTIFICACION' │ 'actualizar dirección envio:c5661293-1be3-471a-bf2a' │
+│ 1       │ 'PASARELA_PAGO'      │ 'SUPRESION'     │ 'revocar token de user:05925bed-daff-432b-a2cf-faba' │
+│ 2       │ 'PLATAFORMA_CORREO'  │ 'SUPRESION'     │ 'baja suscriptor:0369c28adb9f12f20ec1aa51f3ae3f3b8c' │
+└─────────┴──────────────────────┴─────────────────┴──────────────────────────────────────────────────────┘
+  Factura de Bruno: bloqueado=true, bloqueado_hasta=2032-11-10
+  Job de eliminación al cumplirse el plazo legal (simulando +7 años): {"eliminados":1}
 
-▶ Supresión ejecutada (Bruno, sin pedidos en curso)
-{
-  "id": "99d2e9f4-e391-4cdc-b18e-0e25825e831d",
-  "tipo": "SUPRESION",
-  "estado": "CERRADA",
-  "resultado": "EJECUTADA",
-  "campos_solicitados": null,
-  "nivel_verificacion": "CLAVE+CODIGO_EMAIL_REGISTRADO",
-  "fundamento": "Datos eliminados. Se conservan bloqueados 0 documento(s) tributario(s) y los montos de 0 pedido(s) por obligación legal (6 años).",
-  "recibida_el": "2026-10-30T21:47:56.426Z",
-  "verificada_el": "2026-10-30T21:47:56.678Z",
-  "evaluada_el": "2026-10-30T21:47:56.678Z",
-  "resuelta_el": "2026-10-30T21:47:56.679Z",
-  "cerrada_el": "2026-10-30T21:47:56.679Z",
-  "plazo_vence_el": "2026-11-29T21:47:56.426Z"
-}
-  ¿Existe aún la cuenta de Bruno? false   Lápidas de supresión: 1
-  ⛔ NO_AUTENTICADO           Bruno intenta usar su sesión anterior — Sesión inválida o expirada.
+▶ 2. Canal sin cuenta: la invitada verifica su correo y recibe solo sus datos
+  DER-2026-000006: Enviamos un código a i***@e***.test. Ingréselo para continuar.
+  ⛔ CREDENCIALES_INVALIDAS   Confirmar con un código incorrecto — No fue posible verificar su identidad.
+  EJECUTADA: Encontramos 1 pedido(s) como invitado. Su copia está lista para descargar una sola vez antes del 2026-11-11 00:49 UTC.
+[
+  {
+    "fecha": "2026-11-10T00:48:59.866Z",
+    "estado": "PAGADO",
+    "total_clp": 8990,
+    "comuna_envio": "Arica",
+    "nombre": "Invitada Prueba",
+    "email": "invitada@ejemplo.test",
+    "telefono": null,
+    "direccion_envio": "Calle Invitada 77"
+  }
+]
 
-▶ Seguimiento de solicitudes (Oficial de Privacidad): estados, fechas y plazos, sin datos personales
+▶ 6a. Oposición: Ana se opone a la encuesta de satisfacción (base: interés legítimo)
+  ⛔ CREDENCIALES_INVALIDAS   Confirmar con contraseña incorrecta — No fue posible verificar su identidad.
+"Desde ahora no usaremos sus datos para: Encuesta de satisfacción por correo tras la entrega (interés legítimo). El resto del servicio no cambia."
+  Pedido entregado → encuestas recibidas por Ana: 0 (el sistema consultó la oposición antes de enviar)
+
+▶ 6b. Bloqueo: Ana discute la exactitud de sus datos; se conservan pero no se usan
+"Sus datos quedan restringidos: los conservamos, pero no los usamos para marketing, análisis ni encuestas. Solo se usan para cumplir sus pedidos en curso, obligaciones legales y atenderle. El bloqueo se levanta al corregir los datos o cuando usted lo pida."
+  Suscriptores exportables a marketing: 0 (Ana tenía consentimiento, pero está bloqueada)
+  Tras rectificar: bloqueo=null; exportables=1
+
+▶ Plazos: aviso al equipo de privacidad cuando una solicitud está por vencer
+  Revisión simulando 27 días después:
+┌─────────┬───────────────────┬──────────┬────────────┬────────────────┬─────────┐
+│ (index) │ folio             │ tipo     │ estado     │ dias_restantes │ vencida │
+├─────────┼───────────────────┼──────────┼────────────┼────────────────┼─────────┤
+│ 0       │ 'DER-2026-000004' │ 'ACCESO' │ 'RECIBIDA' │ 3              │ false   │
+└─────────┴───────────────────┴──────────┴────────────┴────────────────┴─────────┘
   ⛔ ACCESO_DENEGADO          ADMINISTRADOR intenta ver las solicitudes — No tiene permisos para realizar esta operación.
-┌─────────┬─────────────────┬───────────┬─────────────┬───────────────────────┬───────────────────────┬───────────────────────┬─────────┐
-│ (index) │ tipo            │ estado    │ resultado   │ recibida              │ cerrada               │ plazo                 │ vencida │
-├─────────┼─────────────────┼───────────┼─────────────┼───────────────────────┼───────────────────────┼───────────────────────┼─────────┤
-│ 0       │ 'ACCESO'        │ 'CERRADA' │ 'EJECUTADA' │ '2026-10-30 21:47:55' │ '2026-10-30 21:47:55' │ '2026-11-29 21:47:55' │ false   │
-│ 1       │ 'RECTIFICACION' │ 'CERRADA' │ 'EJECUTADA' │ '2026-10-30 21:47:55' │ '2026-10-30 21:47:56' │ '2026-11-29 21:47:55' │ false   │
-│ 2       │ 'SUPRESION'     │ 'CERRADA' │ 'RECHAZADA' │ '2026-10-30 21:47:56' │ '2026-10-30 21:47:56' │ '2026-11-29 21:47:56' │ false   │
-│ 3       │ 'SUPRESION'     │ 'CERRADA' │ 'EJECUTADA' │ '2026-10-30 21:47:56' │ '2026-10-30 21:47:56' │ '2026-11-29 21:47:56' │ false   │
-└─────────┴─────────────────┴───────────┴─────────────┴───────────────────────┴───────────────────────┴───────────────────────┴─────────┘
+┌─────────┬───────────────────┬─────────────────┬────────────┬─────────────┬───────────────────────┬───────────────────────┬────────────────┐
+│ (index) │ folio             │ tipo            │ estado     │ resultado   │ recibida              │ cerrada               │ dias_restantes │
+├─────────┼───────────────────┼─────────────────┼────────────┼─────────────┼───────────────────────┼───────────────────────┼────────────────┤
+│ 0       │ 'DER-2026-000001' │ 'OPOSICION'     │ 'CERRADA'  │ 'EJECUTADA' │ '2026-11-10 00:49:06' │ '2026-11-10 00:49:06' │ null           │
+│ 1       │ 'DER-2026-000002' │ 'BLOQUEO'       │ 'CERRADA'  │ 'EJECUTADA' │ '2026-11-10 00:49:06' │ '2026-11-10 00:49:06' │ null           │
+│ 2       │ 'DER-2026-000003' │ 'RECTIFICACION' │ 'CERRADA'  │ 'EJECUTADA' │ '2026-11-10 00:49:06' │ '2026-11-10 00:49:06' │ null           │
+│ 3       │ 'DER-2026-000004' │ 'ACCESO'        │ 'RECIBIDA' │ null        │ '2026-11-10 00:49:06' │ '—'                   │ 30             │
+└─────────┴───────────────────┴─────────────────┴────────────┴─────────────┴───────────────────────┴───────────────────────┴────────────────┘
 
 ════════════════════════════════════════════════════════════════════════════════
  3. Registro de auditoría
 ════════════════════════════════════════════════════════════════════════════════
 
 ▶ Últimos eventos (identificadores internos, sin datos personales, encadenados con HMAC)
-┌─────────┬─────┬──────────────────┬─────────────────────────────────────┬─────────────────┬──────────────────────────────────┬────────────┬──────────────────────────────────────┬──────────────┐
-│ (index) │ sec │ categoria        │ accion                              │ rol             │ recurso                          │ resultado  │ motivo                               │ hash         │
-├─────────┼─────┼──────────────────┼─────────────────────────────────────┼─────────────────┼──────────────────────────────────┼────────────┼──────────────────────────────────────┼──────────────┤
-│ 0       │ 32  │ 'DERECHOS'       │ 'derechos:acceso:verificada'        │ 'CLIENTE'       │ 'solicitud:17d0b5f1-b1ea-4b5e-8' │ 'EXITO'    │ ''                                   │ 'b948d60093' │
-│ 1       │ 33  │ 'EXPORTACION'    │ 'derechos:acceso:ejecutada'         │ 'CLIENTE'       │ 'solicitud:17d0b5f1-b1ea-4b5e-8' │ 'EXITO'    │ 'formato=nortishop.export.v1; pedid' │ '0070f5188f' │
-│ 2       │ 34  │ 'DERECHOS'       │ 'derechos:rectificacion:recibida'   │ 'CLIENTE'       │ 'solicitud:6caa18ca-9d96-4d68-8' │ 'EXITO'    │ 'campos=direccionDespacho,comuna'    │ 'b0e66af04c' │
-│ 3       │ 35  │ 'DERECHOS'       │ 'derechos:rectificacion:verificada' │ 'CLIENTE'       │ 'solicitud:6caa18ca-9d96-4d68-8' │ 'EXITO'    │ ''                                   │ 'f4a00c772c' │
-│ 4       │ 36  │ 'MODIFICACION'   │ 'derechos:rectificacion:ejecutada'  │ 'CLIENTE'       │ 'solicitud:6caa18ca-9d96-4d68-8' │ 'EXITO'    │ 'campos=direccionDespacho,comuna; p' │ 'fc496fb6b3' │
-│ 5       │ 37  │ 'DERECHOS'       │ 'derechos:supresion:recibida'       │ 'CLIENTE'       │ 'solicitud:de7b2deb-5bf6-4c3d-8' │ 'EXITO'    │ ''                                   │ 'ac6977aadd' │
-│ 6       │ 38  │ 'DERECHOS'       │ 'derechos:supresion:verificada'     │ 'CLIENTE'       │ 'solicitud:de7b2deb-5bf6-4c3d-8' │ 'EXITO'    │ ''                                   │ '1a3fcb841c' │
-│ 7       │ 39  │ 'DERECHOS'       │ 'derechos:supresion:rechazada'      │ 'CLIENTE'       │ 'solicitud:de7b2deb-5bf6-4c3d-8' │ 'FALLIDO'  │ 'La cuenta tiene 1 pedido(s) en cur' │ 'f24efc3aab' │
-│ 8       │ 40  │ 'DERECHOS'       │ 'derechos:supresion:recibida'       │ 'CLIENTE'       │ 'solicitud:99d2e9f4-e391-4cdc-b' │ 'EXITO'    │ ''                                   │ '0e7a897488' │
-│ 9       │ 41  │ 'DERECHOS'       │ 'derechos:supresion:verificada'     │ 'CLIENTE'       │ 'solicitud:99d2e9f4-e391-4cdc-b' │ 'EXITO'    │ ''                                   │ '1c0f986476' │
-│ 10      │ 42  │ 'SUPRESION'      │ 'derechos:supresion:ejecutada'      │ 'CLIENTE'       │ 'solicitud:99d2e9f4-e391-4cdc-b' │ 'EXITO'    │ 'Datos eliminados. Se conservan blo' │ '39549f43a8' │
-│ 11      │ 43  │ 'CONTROL_ACCESO' │ 'derechos:gestionar'                │ 'ADMINISTRADOR' │ 'solicitudes_derechos'           │ 'DENEGADO' │ 'ROL_SIN_PERMISO'                    │ '7932787f80' │
-└─────────┴─────┴──────────────────┴─────────────────────────────────────┴─────────────────┴──────────────────────────────────┴────────────┴──────────────────────────────────────┴──────────────┘
+┌─────────┬─────┬──────────────────┬─────────────────────────────────────┬──────────────────────┬──────────────────────────────────┬─────────────┬──────────────────────────────────────┬──────────────┐
+│ (index) │ sec │ categoria        │ accion                              │ rol                  │ recurso                          │ resultado   │ motivo                               │ hash         │
+├─────────┼─────┼──────────────────┼─────────────────────────────────────┼──────────────────────┼──────────────────────────────────┼─────────────┼──────────────────────────────────────┼──────────────┤
+│ 0       │ 31  │ 'DERECHOS'       │ 'derechos:bloqueo:recibida'         │ 'CLIENTE'            │ 'solicitud:DER-2026-000002'      │ 'EXITO'     │ 'EXACTITUD_EN_DISPUTA'               │ 'e6096ae8f4' │
+│ 1       │ 32  │ 'DERECHOS'       │ 'derechos:bloqueo:verificada'       │ 'CLIENTE'            │ 'solicitud:DER-2026-000002'      │ 'EXITO'     │ ''                                   │ 'ba3a039992' │
+│ 2       │ 33  │ 'DERECHOS'       │ 'derechos:bloqueo:ejecutada'        │ 'CLIENTE'            │ 'solicitud:DER-2026-000002'      │ 'EXITO'     │ 'Sus datos quedan restringidos: los' │ 'b9adc66c22' │
+│ 3       │ 34  │ 'EXPORTACION'    │ 'marketing:exportar'                │ 'MARKETING'          │ 'v_export_marketing'             │ 'PERMITIDO' │ '0 suscriptores'                     │ '2751f03aeb' │
+│ 4       │ 35  │ 'DERECHOS'       │ 'derechos:rectificacion:recibida'   │ 'CLIENTE'            │ 'solicitud:DER-2026-000003'      │ 'EXITO'     │ 'campos=nombre'                      │ 'f3f6878976' │
+│ 5       │ 36  │ 'DERECHOS'       │ 'derechos:rectificacion:verificada' │ 'CLIENTE'            │ 'solicitud:DER-2026-000003'      │ 'EXITO'     │ ''                                   │ '5844d7f887' │
+│ 6       │ 37  │ 'DERECHOS'       │ 'derechos:bloqueo:levantado'        │ 'CLIENTE'            │ 'bloqueo:ec95a0ae-96b7-4c39-88e' │ 'EXITO'     │ 'Exactitud resuelta por rectificaci' │ 'ef6d93a1a1' │
+│ 7       │ 38  │ 'MODIFICACION'   │ 'derechos:rectificacion:ejecutada'  │ 'CLIENTE'            │ 'solicitud:DER-2026-000003'      │ 'EXITO'     │ 'campos=nombre; propagado_a=0; terc' │ '74f904bc2e' │
+│ 8       │ 39  │ 'EXPORTACION'    │ 'marketing:exportar'                │ 'MARKETING'          │ 'v_export_marketing'             │ 'PERMITIDO' │ '1 suscriptores'                     │ '1b2ee99341' │
+│ 9       │ 40  │ 'DERECHOS'       │ 'derechos:acceso:recibida'          │ 'CLIENTE'            │ 'solicitud:DER-2026-000004'      │ 'EXITO'     │ ''                                   │ '054d7a7b6e' │
+│ 10      │ 41  │ 'DERECHOS'       │ 'derechos:plazos:revision'          │ 'OFICIAL_PRIVACIDAD' │ 'solicitudes_derechos'           │ 'EXITO'     │ 'por_vencer_o_vencidas=1'            │ '8032542d8a' │
+│ 11      │ 42  │ 'CONTROL_ACCESO' │ 'derechos:gestionar'                │ 'ADMINISTRADOR'      │ 'solicitudes_derechos'           │ 'DENEGADO'  │ 'ROL_SIN_PERMISO'                    │ 'de2138f87a' │
+└─────────┴─────┴──────────────────┴─────────────────────────────────────┴──────────────────────┴──────────────────────────────────┴─────────────┴──────────────────────────────────────┴──────────────┘
   ⛔ ACCESO_DENEGADO          CLIENTE intenta consultar la auditoría — No tiene permisos para realizar esta operación.
   ⛔ BD_PERMISO_DENEGADO La aplicación intenta borrar un registro: permiso denegado para svc_app: D en audit_log
 
 ▶ Verificación de la cadena: íntegra → un atacante modifica el registro 4 → detectado
 {
   "integra": true,
-  "registros": 45,
-  "ultimaSecuencia": 45,
+  "registros": 44,
+  "ultimaSecuencia": 44,
   "problemas": []
 }
 {
   "integra": false,
-  "registros": 46,
-  "ultimaSecuencia": 46,
+  "registros": 45,
+  "ultimaSecuencia": 45,
   "problemas": [
     {
       "secuencia": 4,
@@ -240,14 +288,14 @@ Integrantes: Catalina Toledo | María Gerónimo | Pablo Lineros | Fabián Salina
 ┌─────────┬─────────────────────────────┬─────────────────────┬───────────┬────────────────────────┬───────────┐
 │ (index) │ regla                       │ nivel               │ severidad │ sujeto                 │ estado    │
 ├─────────┼─────────────────────────────┼─────────────────────┼───────────┼────────────────────────┼───────────┤
-│ 0       │ 'REVELACIONES_PII_ANOMALAS' │ 'EVENTO_SOSPECHOSO' │ 'ALTA'    │ '2b2ac514-7780-4089-a' │ 'ABIERTA' │
+│ 0       │ 'REVELACIONES_PII_ANOMALAS' │ 'EVENTO_SOSPECHOSO' │ 'ALTA'    │ 'ef0a194e-dbb3-483d-8' │ 'ABIERTA' │
 │ 1       │ 'FUERZA_BRUTA'              │ 'ALERTA'            │ 'MEDIA'   │ 'cuenta:e5a5e913d026'  │ 'ABIERTA' │
 └─────────┴─────────────────────────────┴─────────────────────┴───────────┴────────────────────────┴───────────┘
 
 ▶ Análisis → evidencia → contención
   ⛔ CONFLICTO                Contener sin preservar evidencia — Preserve la evidencia antes de ejecutar acciones de contención.
 {
-  "sha256": "05f91f115e4e8fc4ec1695b1dad779bd2a4d76fd5177718692044e7deeb1f47a",
+  "sha256": "8c15be7d0935c38983b566ddced516a821cadb9a6e59232dedb7788679509286",
   "eventos": 37,
   "cadenaIntegra": true
 }
@@ -286,8 +334,8 @@ Integrantes: Catalina Toledo | María Gerónimo | Pablo Lineros | Fabián Salina
 }
 {
   "descripcion": "Revelación masiva de datos por cuenta de soporte",
-  "fecha_deteccion": "2026-10-30T21:48:02.665Z",
-  "periodo": "2026-10-30T20:48:02.665Z a en investigación",
+  "fecha_deteccion": "2026-11-10T00:49:12.910Z",
+  "periodo": "2026-11-09T23:49:12.911Z a en investigación",
   "datos_afectados": [
     "nombre e identificador de cuenta",
     "correo electrónico y teléfono",
@@ -311,15 +359,15 @@ Integrantes: Catalina Toledo | María Gerónimo | Pablo Lineros | Fabián Salina
 ┌─────────┬────────────────┬───────────────────────────────────────────┬───────────────────────┬──────────────────────────────────────────────────────┐
 │ (index) │ fase           │ accion                                    │ cuando                │ detalle                                              │
 ├─────────┼────────────────┼───────────────────────────────────────────┼───────────────────────┼──────────────────────────────────────────────────────┤
-│ 0       │ 'DETECCION'    │ 'abierto'                                 │ '2026-10-30 21:48:02' │ 'severidad=ALTA; alertas=1'                          │
-│ 1       │ 'ANALISIS'     │ 'alcance_evaluado'                        │ '2026-10-30 21:48:02' │ 'tipos=IDENTIFICACION,CONTACTO,DIRECCION; titulares' │
-│ 2       │ 'CONTENCION'   │ 'evidencia_preservada'                    │ '2026-10-30 21:48:02' │ 'sha256=05f91f115e4e8fc4; cadena_integra=true'       │
-│ 3       │ 'CONTENCION'   │ 'contencion:suspender_rol'                │ '2026-10-30 21:48:02' │ 'objetivo=SOPORTE'                                   │
-│ 4       │ 'CONTENCION'   │ 'contencion:deshabilitar_cuenta_personal' │ '2026-10-30 21:48:02' │ 'objetivo=2b2ac514-7780-4089-a9b1-32e797efe5b2'      │
-│ 5       │ 'ERRADICACION' │ 'causa_eliminada'                         │ '2026-10-30 21:48:02' │ 'Cambio de credenciales y MFA obligatorio para sopo' │
-│ 6       │ 'RECUPERACION' │ 'operacion_restablecida'                  │ '2026-10-30 21:48:02' │ 'Auditoría íntegra: OK; Saldos de NortiPuntos ínteg' │
-│ 7       │ 'NOTIFICACION' │ 'decision_notificacion'                   │ '2026-10-30 21:48:02' │ 'agencia=true; titulares=true; Se informa a la Agen' │
-│ 8       │ 'CIERRE'       │ 'cerrado'                                 │ '2026-10-30 21:48:02' │ 'MFA obligatorio y revisión trimestral de accesos d' │
+│ 0       │ 'DETECCION'    │ 'abierto'                                 │ '2026-11-10 00:49:12' │ 'severidad=ALTA; alertas=1'                          │
+│ 1       │ 'ANALISIS'     │ 'alcance_evaluado'                        │ '2026-11-10 00:49:12' │ 'tipos=IDENTIFICACION,CONTACTO,DIRECCION; titulares' │
+│ 2       │ 'CONTENCION'   │ 'evidencia_preservada'                    │ '2026-11-10 00:49:12' │ 'sha256=8c15be7d0935c389; cadena_integra=true'       │
+│ 3       │ 'CONTENCION'   │ 'contencion:suspender_rol'                │ '2026-11-10 00:49:12' │ 'objetivo=SOPORTE'                                   │
+│ 4       │ 'CONTENCION'   │ 'contencion:deshabilitar_cuenta_personal' │ '2026-11-10 00:49:12' │ 'objetivo=ef0a194e-dbb3-483d-878c-a57d52a45f33'      │
+│ 5       │ 'ERRADICACION' │ 'causa_eliminada'                         │ '2026-11-10 00:49:12' │ 'Cambio de credenciales y MFA obligatorio para sopo' │
+│ 6       │ 'RECUPERACION' │ 'operacion_restablecida'                  │ '2026-11-10 00:49:12' │ 'Auditoría íntegra: OK; Saldos de NortiPuntos ínteg' │
+│ 7       │ 'NOTIFICACION' │ 'decision_notificacion'                   │ '2026-11-10 00:49:12' │ 'agencia=true; titulares=true; Se informa a la Agen' │
+│ 8       │ 'CIERRE'       │ 'cerrado'                                 │ '2026-11-10 00:49:12' │ 'MFA obligatorio y revisión trimestral de accesos d' │
 └─────────┴────────────────┴───────────────────────────────────────────┴───────────────────────┴──────────────────────────────────────────────────────┘
 
 ════════════════════════════════════════════════════════════════════════════════

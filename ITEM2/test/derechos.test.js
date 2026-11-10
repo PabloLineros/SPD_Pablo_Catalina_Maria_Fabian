@@ -26,13 +26,29 @@ test('Acceso: exige contraseña y código, entrega una copia estructurada y deja
 
   assert.equal(r.solicitud.estado, 'CERRADA');
   assert.equal(r.solicitud.resultado, 'EJECUTADA');
+  assert.match(r.solicitud.folio, /^DER-\d{4}-\d{6}$/);
   for (const f of ['recibida_el', 'verificada_el', 'evaluada_el', 'resuelta_el', 'cerrada_el']) assert.ok(r.solicitud[f], f);
-  assert.equal(r.datos.formato, 'nortishop.export.v1');
-  assert.equal(r.datos.datos_personales.email, EMAIL_ANA);
-  assert.equal(r.datos.pedidos.length, 1);
-  assert.ok(r.datos.informacion_del_tratamiento.destinatarios.length > 0);
 
-  const texto = JSON.stringify(r.datos);
+  // Entrega segura: enlace temporal de un solo uso, solo para el titular, copia cifrada en reposo.
+  assert.ok(r.descarga.token && r.descarga.un_solo_uso);
+  assert.ok(Date.parse(r.descarga.expira_el) - Date.now() <= 24 * 3_600_000);
+  assert.match(DB.simularAccesoFisico().descargas[0].contenido_cifrado, /^[0-9a-f]{24}:[0-9a-f]{32}:/);
+  assert.equal((await API.derechos.descargar(tokens.clienteB, r.descarga.token)).error.codigo, 'ACCESO_DENEGADO');
+  assert.equal((await API.derechos.descargarSinCuenta(r.descarga.token)).error.codigo, 'NO_AUTENTICADO');
+  const datos = ok(await API.derechos.descargar(tokens.clienteA, r.descarga.token));
+  assert.equal((await API.derechos.descargar(tokens.clienteA, r.descarga.token)).error.codigo, 'NO_ENCONTRADO', 'un solo uso');
+  assert.equal(DB.simularAccesoFisico().descargas.length, 0, 'la copia deja de existir al entregarse');
+
+  assert.equal(datos.formato, 'nortishop.export.v1');
+  assert.equal(datos.datos_personales.email, EMAIL_ANA);
+  assert.equal(datos.pedidos.length, 1);
+  assert.equal(datos.pedidos[0].estado_envio, 'PENDIENTE');
+  const info = datos.informacion_del_tratamiento;
+  assert.ok(info.destinatarios.some(d => d.tercero === 'Pasarela de pago'));
+  assert.ok(info.donde_se_encontraron_sus_datos.some(u => u.descripcion === 'Pedidos'), 'todas las fuentes, no solo users');
+  assert.equal(datos.origen_y_finalidad.medio_pago_guardado.origen, 'Recibido de la pasarela de pago');
+
+  const texto = JSON.stringify(datos);
   assert.doesNotMatch(texto, /\$2[aby]\$|tok_norti|email_hmac|pseudo|tx_auth_|ref_envio/, 'sin información interna');
   assert.doesNotMatch(texto, /Bruno|bruno\.prueba|Pasaje Inventado/, 'sin datos de terceros');
 });
@@ -40,9 +56,9 @@ test('Acceso: exige contraseña y código, entrega una copia estructurada y deja
 test('Portabilidad: JSON legible por máquinas con los datos aportados, sin información interna de tratamiento', async () => {
   const { tokens, ids } = await prepararEscenario();
   const r = ok(await ejercerDerecho(tokens.clienteA, ids.clienteA, { tipo: 'PORTABILIDAD' }, { emailCodigo: EMAIL_ANA }));
-  const copia = JSON.parse(JSON.stringify(r.datos));
+  const copia = JSON.parse(JSON.stringify(ok(await API.derechos.descargar(tokens.clienteA, r.descarga.token))));
   assert.equal(copia.tipo, 'PORTABILIDAD');
-  assert.deepEqual(Object.keys(copia).sort(), ['datos_facturacion', 'datos_personales', 'formato', 'generado_el', 'nortipuntos', 'pedidos', 'resenas', 'tipo', 'titular_id']);
+  assert.deepEqual(Object.keys(copia).sort(), ['datos_facturacion', 'datos_personales', 'formato', 'generado_el', 'nortipuntos', 'origen_y_finalidad', 'pedidos', 'resenas', 'tipo', 'titular_id']);
   assert.equal(copia.nortipuntos.saldo, 500);
 });
 
@@ -117,14 +133,16 @@ test('Supresión: rechazo fundamentado con pedidos en curso; luego elimina, deja
   ok(await API.logistica.actualizarEstado(tokens.logistica, ref, 'EN_RUTA'));
   ok(await API.logistica.actualizarEstado(tokens.logistica, ref, 'ENTREGADO'));
   const ejecutada = ok(await ejercerDerecho(tokens.clienteA, ids.clienteA, { tipo: 'SUPRESION' }, { emailCodigo: EMAIL_ANA }));
-  assert.equal(ejecutada.solicitud.resultado, 'EJECUTADA');
-  assert.match(ejecutada.solicitud.fundamento, /obligación legal/);
+  assert.equal(ejecutada.solicitud.resultado, 'PARCIAL', 'se conservan montos de pedidos por obligación legal');
+  assert.match(ejecutada.solicitud.fundamento, /obligación tributaria/);
+  assert.match(ejecutada.solicitud.fundamento, /PASARELA_PAGO, PLATAFORMA_CORREO/, 'propagación a terceros informada');
 
   let bd = DB.simularAccesoFisico();
   assert.equal(bd.users.some(u => u.id === ids.clienteA), false);
   assert.ok(bd.supresiones.some(s => s.id === huellaSupresion(ids.clienteA)), 'lápida sin datos personales');
   assert.ok(bd.consentimientos.filter(c => c.user_id === ids.clienteA).every(c => c.estado === 'REVOCADO'));
-  assert.ok(bd.solicitudes_derechos.some(s => s.user_id === ids.clienteA && s.resultado === 'EJECUTADA'), 'la solicitud queda como constancia');
+  assert.ok(bd.solicitudes_derechos.some(s => s.user_id === ids.clienteA && s.resultado === 'PARCIAL'), 'la solicitud queda como constancia');
+  assert.deepEqual(bd.comunicaciones_terceros.filter(c => c.tipo === 'SUPRESION').map(c => c.tercero).sort(), ['PASARELA_PAGO', 'PLATAFORMA_CORREO']);
 
   // Se restaura un respaldo anterior: el titular "revive" hasta que se reaplican las supresiones.
   DB.conectar(ROLES_BD.SVC_APP).insertar('users', respaldo);
