@@ -324,8 +324,14 @@ export const ESQUEMA = Object.freeze({
       secuencia: col('entero', R), id: col('uuid', R), created_at: col('fecha', R),
       actor_id: col('texto', R), actor_rol: col('texto', R),
       accion: col('texto', R), categoria: col('texto', R), recurso: col('texto'),
+      titular_ref: col('texto'),                 // id interno del titular afectado (nunca su nombre o correo)
+      datos: col('texto'),                       // NOMBRES de los campos personales tocados, nunca valores
       resultado: col('texto', { req: true, valores: ['PERMITIDO', 'DENEGADO', 'EXITO', 'FALLIDO'] }),
-      motivo: col('texto'), hash_previo: col('hmac', R), hash: col('hmac', R)
+      motivo: col('texto'),
+      sesion_ref: col('texto'),                  // prefijo del SHA-256 del token de sesión
+      origen_ref: col('texto'),                  // HMAC(K_origen, ip) truncado; la IP no se guarda
+      correlacion_id: col('uuid'),               // agrupa los eventos de una misma solicitud
+      hash_previo: col('hmac', R), hash: col('hmac', R)
     }
   },
   'pseudo.pseudonimos': {
@@ -384,7 +390,8 @@ const GRANTS = Object.freeze({
   [ROLES_BD.ROL_MARKETING]: {},
   [ROLES_BD.ROL_PUBLICO]: {},
   [ROLES_BD.ROL_AUDITOR]: { audit_log: 'S', auditoria_anclas: 'S', auditoria_purgas: 'S' },
-  [ROLES_BD.SVC_RETENCION]: { audit_log: 'D', auditoria_purgas: 'I' },
+  // Retención: borra lo vencido; lee incidentes solo para respetar la retención extendida (legal hold).
+  [ROLES_BD.SVC_RETENCION]: { audit_log: 'D', auditoria_purgas: 'I', alertas: 'SD', evidencias: 'SD', incidentes: 'S' },
   [ROLES_BD.SVC_SEGURIDAD]: {
     alertas: 'SU', incidentes: 'SIU', incidente_acciones: 'SI', evidencias: 'SI',
     controles_operacion: 'SIU', auditoria_anclas: 'I'

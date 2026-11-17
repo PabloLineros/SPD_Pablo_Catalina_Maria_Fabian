@@ -9,6 +9,7 @@ import { UserService } from './services/userService.js';
 import { bandejaDe } from './infra/correo.js';
 import { respuestaDeError } from './security/errors.js';
 import { logger } from './security/logger.js';
+import { conOrigen } from './security/contexto.js';
 
 /**
  * Servidor HTTP de NortiShop (sin dependencias externas).
@@ -81,7 +82,8 @@ async function manejarApi(req, res, grupo, operacion) {
     return responder(res, estado, { ok: false, error: { codigo: 'DATO_INVALIDO', estado, mensaje: 'Cuerpo de la solicitud inválido.' } });
   }
 
-  const resultado = PUBLICAS.has(`${grupo}.${operacion}`) ? await fn(...args) : await fn(tokenDe(req), ...args);
+  // La IP del socket solo se usa para calcular el seudónimo de origen de la auditoría; no se guarda.
+  const resultado = await conOrigen(req.socket.remoteAddress, () => (PUBLICAS.has(`${grupo}.${operacion}`) ? fn(...args) : fn(tokenDe(req), ...args)));
   return responder(res, resultado.ok ? 200 : resultado.error.estado, resultado);
 }
 

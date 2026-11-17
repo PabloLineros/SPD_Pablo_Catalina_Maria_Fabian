@@ -49,7 +49,7 @@ export function revertirSeudonimo(sesion, entrada) {
   if (motivo.length < 15) throw errores.datoInvalido('Debe documentar el motivo de la reidentificación (mín. 15 caracteres).');
 
   const fila = bdPrivacidad.obtener('pseudo.pseudonimos', `${entrada.finalidad}:${entrada.pseudoId}`);
-  registrarAuditoria({ sesion, accion: PERMISOS.SEUDONIMOS_REVERTIR, recurso: `pseudo:${String(entrada.pseudoId).slice(0, 12)}`, resultado: 'PERMITIDO', motivo });
+  registrarAuditoria({ sesion, accion: PERMISOS.SEUDONIMOS_REVERTIR, recurso: `pseudo:${String(entrada.pseudoId).slice(0, 12)}`, titular: fila?.user_id ?? null, resultado: 'PERMITIDO', motivo });
   if (!fila) throw errores.noEncontrado('Seudónimo');
   return { userId: fila.user_id, finalidad: fila.finalidad };
 }

@@ -20,7 +20,8 @@ const VARIABLES = [
   'KEY_HMAC_ANALITICA',
   'KEY_HMAC_MARKETING',
   'KEY_HMAC_AUDITORIA',
-  'KEY_HMAC_VERIFICACION'
+  'KEY_HMAC_VERIFICACION',
+  'KEY_HMAC_ORIGEN'
 ];
 
 const existente = fs.existsSync(rutaEnv) ? fs.readFileSync(rutaEnv, 'utf8') : '';

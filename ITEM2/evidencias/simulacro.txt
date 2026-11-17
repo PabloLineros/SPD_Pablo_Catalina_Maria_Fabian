@@ -1,0 +1,121 @@
+
+====================================================================================================
+ SIMULACRO: relleno de credenciales -> toma de cuenta -> compra con la tarjeta guardada (datos sintéticos)
+====================================================================================================
+Guion (lo que hizo el atacante, anotado aparte de la auditoría):
+  - Probó 11 correos de una lista filtrada desde un mismo origen.
+  - Entró a la cuenta de Ana (contraseña reutilizada), vio su perfil, cambió la dirección de despacho,
+    compró con la tarjeta guardada e intentó pedir la portabilidad de sus datos (sin el código del correo).
+
+====================================================================================================
+ 1. DETECCIÓN — alertas abiertas
+====================================================================================================
+  [ALTA ] RELLENO_CREDENCIALES   EVENTO_SOSPECHOSO  sujeto=org:3c55c5696a…
+  [ALTA ] TOMA_DE_CUENTA         EVENTO_SOSPECHOSO  sujeto=Ana (cliente)
+
+====================================================================================================
+ 2. RECONSTRUCCIÓN desde el origen de la alerta (org:3c55c5696acc53be) — 17 eventos
+====================================================================================================
+  sec  hora UTC     actor            acción                             resultado titular          datos                                sesión
+  30   01:21:15.187 cuenta:7812ba1…  auth:login                         FALLIDO   -                credenciales                         -
+  31   01:21:15.384 cuenta:f37bfe4…  auth:login                         FALLIDO   -                credenciales                         -
+  32   01:21:15.583 cuenta:bd7f90c…  auth:login                         FALLIDO   -                credenciales                         -
+  33   01:21:15.789 cuenta:f1dd155…  auth:login                         FALLIDO   -                credenciales                         -
+  34   01:21:15.989 cuenta:b541648…  auth:login                         FALLIDO   -                credenciales                         -
+  35   01:21:16.189 cuenta:09a4354…  auth:login                         FALLIDO   -                credenciales                         -
+  36   01:21:16.386 cuenta:dca8cab…  auth:login                         FALLIDO   -                credenciales                         -
+  37   01:21:16.585 cuenta:8bc81e3…  auth:login                         FALLIDO   -                credenciales                         -
+  38   01:21:16.785 cuenta:4b812b3…  auth:login                         FALLIDO   -                credenciales                         -
+  39   01:21:16.995 cuenta:410962d…  auth:login                         FALLIDO   Bruno (cliente)  credenciales                         -
+  41   01:21:17.192 cuenta:3560219…  auth:login                         FALLIDO   -                credenciales                         -
+  42   01:21:17.390 Ana (cliente)    auth:login                         EXITO     Ana (cliente)    credenciales                         ses:5fd9a25f
+  43   01:21:17.390 Ana (cliente)    perfil:propio:leer                 EXITO     Ana (cliente)    nombre,email,direccion,telefono,medi ses:5fd9a25f
+  44   01:21:17.391 Ana (cliente)    perfil:propio:editar               EXITO     Ana (cliente)    direccion                            ses:5fd9a25f
+  46   01:21:17.393 Ana (cliente)    pedido:crear                       EXITO     Ana (cliente)    direccion,pedidos,medio_pago         ses:5fd9a25f
+  47   01:21:17.394 Ana (cliente)    derechos:portabilidad:recibida     EXITO     Ana (cliente)    -                                    ses:5fd9a25f
+  48   01:21:17.593 Ana (cliente)    derechos:portabilidad:verificacion FALLIDO   Ana (cliente)    -                                    ses:5fd9a25f
+
+  Resumen reconstruido:
+    Período:                 2026-11-14T01:21:15.187Z a 2026-11-14T01:21:17.593Z
+    Cuentas probadas:        11 (reales: Bruno (cliente))
+    Cuentas comprometidas:   Ana (cliente)
+    Datos de Ana (cliente): credenciales, direccion, email, medio_pago, nombre, pedidos, telefono  ->  tipos: CONTACTO, CREDENCIALES, DIRECCION, FINANCIEROS, HISTORIAL_COMPRAS, IDENTIFICACION
+    Cambio:                  #44 perfil:propio:editar users:6a8a3fb7-908d-44a8-af1c-d06fcb85305a [direccion] campos=direccionDespacho; propagado=0
+    Cambio:                  #46 pedido:crear orders:52b668e5-6170-444f-ab0c-2aa03ecb7cc5 [direccion,pedidos,medio_pago] medio=TOKEN_GUARDADO; total_clp=119980
+    Frenado por un control:  #48 derechos:portabilidad:verificacion FALLIDO (intento=1)
+    Integridad de la cadena: ÍNTEGRA (50 registros)
+
+====================================================================================================
+ 3. RESPUESTA — fases registradas en la bitácora del incidente
+====================================================================================================
+  Purga intentada con el incidente abierto: 0 registros borrados (retención extendida desde 2026-11-13T01:21:15.187Z)
+  Evidencia preservada: sha256=b926914a7318c5fa54a9e6ba…  eventos=24
+  Sesión del atacante revocada: sí · Pedido fraudulento: CANCELADO (contención CANCELAR_PEDIDO)
+  01:21:17.594  DETECCION     abierto                          severidad=ALTA; alertas=2
+  01:21:17.596  ANALISIS      alcance_evaluado                 tipos=CONTACTO,CREDENCIALES,DIRECCION,FINANCIEROS,HISTORIAL_
+  01:21:17.598  CONTENCION    evidencia_preservada             sha256=b926914a7318c5fa; cadena_integra=true
+  01:21:17.599  CONTENCION    contencion:revocar_sesiones      objetivo=6a8a3fb7-908d-44a8-af1c-d06fcb85305a
+  01:21:17.599  CONTENCION    contencion:cancelar_pedido       objetivo=52b668e5-6170-444f-ab0c-2aa03ecb7cc5
+  01:21:17.599  ERRADICACION  causa_eliminada                  Cambio de contraseña forzado para la titular y bloqueo tempo
+  01:21:17.601  RECUPERACION  operacion_restablecida           Auditoría íntegra: OK; Saldos de NortiPuntos íntegros: OK; S
+  01:21:17.601  NOTIFICACION  decision_notificacion            agencia=true; titulares=true; Acceso no autorizado a la cuen
+  01:21:17.601  CIERRE        cerrado                          Pendientes de implementar: segundo factor por correo al camb
+  Estado final del incidente: CERRADO · severidad: CRITICA (abierto como ALTA; sube a CRÍTICA porque se usó la tarjeta guardada)
+
+====================================================================================================
+ 4. NOTIFICACIÓN — evaluación y borrador (Oficial de Privacidad)
+====================================================================================================
+  Agencia: SÍ · Titulares: SÍ
+   - Hay datos personales comprometidos con riesgo razonable para los derechos de los titulares: corresponde informar a la Agencia de Protección de Datos Personales sin dilaciones indebidas.
+   - Involucra FINANCIEROS: corresponde comunicar también a cada titular afectado, en lenguaje claro; si no es posible, mediante un aviso en un medio de comunicación social masivo y de alcance nacional.
+   - Involucra medios de pago: avisar también a la pasarela de pago para que gestione el aviso a las marcas de tarjetas (PCI DSS).
+  {
+    "descripcion": "Toma de cuenta de cliente tras relleno de credenciales",
+    "fecha_deteccion": "2026-11-14T01:21:17.594Z",
+    "periodo": "2026-11-14T01:21:15.187Z a 2026-11-14T01:21:17.593Z",
+    "datos_afectados": [
+      "correo electrónico y teléfono",
+      "credenciales de acceso (hash de contraseña o sesiones)",
+      "dirección de despacho",
+      "datos de medios de pago o transacciones",
+      "historial de compras y puntos",
+      "nombre e identificador de cuenta"
+    ],
+    "titulares_afectados": 1,
+    "posibles_consecuencias": [
+      "correos o llamadas fraudulentas que usen el nombre de NortiShop",
+      "acceso no autorizado a la cuenta",
+      "exposición del domicilio",
+      "intentos de fraude con medios de pago",
+      "exposición de hábitos de consumo",
+      "suplantación de identidad o correos fraudulentos dirigidos (phishing)"
+    ],
+    "medidas_adoptadas": [
+      "Se cerraron todas las sesiones abiertas de la cuenta afectada.",
+      "Se canceló el pedido no autorizado antes de su despacho.",
+      "Cambio de contraseña forzado para la titular y bloqueo temporal del origen atacante (procedimientos manuales del ADMINISTRADOR)."
+    ],
+    "recomendaciones": [
+      "Desconfíe de mensajes que pidan datos o pagos a nombre de NortiShop.",
+      "Cambie su contraseña de NortiShop y la de otros servicios donde use la misma.",
+      "Revise los movimientos de su tarjeta y avise a su banco ante cargos desconocidos."
+    ],
+    "contacto": "privacidad@nortishop.test (Oficial de Privacidad)"
+  }
+
+====================================================================================================
+ 5. COMPROBACIÓN — ¿la auditoría permite reconstruir lo que realmente ocurrió?
+====================================================================================================
+  ✔ La cadena de auditoría está íntegra                                  50 registros
+  ✔ Todo viene de un único origen (el del atacante)                      org:3c55c5696acc53be
+  ✔ Cuentas probadas = las del guion                                     11 de 11
+  ✔ Cuenta real probada sin éxito identificada (Bruno)                   714b3bd0-c3f0-44e3-9c59-39c3748c00ac
+  ✔ Cuenta comprometida = la del guion (Ana)                             6a8a3fb7-908d-44a8-af1c-d06fcb85305a
+  ✔ Acciones dentro de la cuenta = las del guion, en orden               perfil:propio:leer > perfil:propio:editar > pedido:crear > derechos:portabilidad:recibida > derechos:portabilidad:verificacion
+  ✔ Pedido fraudulento identificado                                      orders:52b668e5-6170-444f-ab0c-2aa03ecb7cc5
+  ✔ Intento frenado por los controles (portabilidad sin código)          derechos:portabilidad:verificacion
+  ✔ Titulares afectados = 1 (Ana) con sus datos expuestos                credenciales, direccion, email, medio_pago, nombre, pedidos, telefono
+  ✔ No se mezclan eventos legítimos (Ana desde su casa, Bruno, soporte)  17 eventos
+  ✔ La auditoría no contiene datos personales, contraseñas ni IPs        24 valores sintéticos buscados
+
+  11/11 comprobaciones correctas. Campos de cada registro: secuencia, id, created_at, actor_id, actor_rol, accion, categoria, recurso, titular_ref, datos, resultado, motivo, sesion_ref, origen_ref, correlacion_id, hash_previo, hash.

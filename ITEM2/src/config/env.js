@@ -52,6 +52,12 @@ function validateConfig() {
     CODIGO_VERIFICACION_MAX_INTENTOS: 5,
     // Conservación de la auditoría: 24 meses; luego se purga por lotes con constancia
     RETENCION_AUDITORIA_DIAS: 730,
+    // Conservación de los demás registros de trazabilidad (ver auditService.POLITICA_CONSERVACION)
+    RETENCION_ALERTAS_DIAS: 730,
+    RETENCION_EVIDENCIAS_DIAS: 1825,
+    RETENCION_LOGS_APLICACION_DIAS: 90,
+    // Horario laboral del personal (alerta ACCESO_FUERA_DE_HORARIO): lunes a sábado, 08:00 a 21:00
+    HORARIO_LABORAL: Object.freeze({ zona: 'America/Santiago', desde: 8, hasta: 21, dias: Object.freeze([1, 2, 3, 4, 5, 6]) }),
     // Puerto del servidor HTTP de demostración
     PUERTO: parseInt(process.env.PORT || '3000', 10),
     LOG_A_CONSOLA: process.env.LOG_A_CONSOLA === 'true'

@@ -16,6 +16,7 @@ import * as Privacidad from './services/privacyService.js';
 import './security/detection.js'; // activa la detección sobre el flujo de auditoría
 import { respuestaDeError } from './security/errors.js';
 import { logger } from './security/logger.js';
+import { enSolicitud, fijarSesion } from './security/contexto.js';
 
 /**
  * Capa de API del servidor (la usan src/server.js, la demo y las pruebas).
@@ -27,7 +28,8 @@ import { logger } from './security/logger.js';
 
 async function ejecutar(operacion, fn) {
   try {
-    return { ok: true, data: await fn() };
+    // Cada llamada abre su contexto de trazabilidad (correlación + origen heredado del servidor).
+    return { ok: true, data: await enSolicitud(operacion, fn) };
   } catch (error) {
     const respuesta = respuestaDeError(error);
     if (respuesta.estado >= 500) {
@@ -38,7 +40,11 @@ async function ejecutar(operacion, fn) {
 }
 
 const publico = (operacion, fn) => (...args) => ejecutar(operacion, () => fn(...args));
-const protegido = (operacion, fn) => (token, ...args) => ejecutar(operacion, () => fn(resolverSesion(token), ...args));
+const protegido = (operacion, fn) => (token, ...args) => ejecutar(operacion, () => {
+  const sesion = resolverSesion(token);
+  fijarSesion(sesion.sesionRef);
+  return fn(sesion, ...args);
+});
 
 export const API = {
   auth: {
@@ -119,6 +125,7 @@ export const API = {
   auditoria: {
     consultar: protegido('auditoria.consultar', (s, filtros) => AuditService.consultar(s, filtros)),
     verificar: protegido('auditoria.verificar', (s) => AuditService.verificar(s)),
+    reconstruir: protegido('auditoria.reconstruir', (s, entrada) => AuditService.reconstruir(s, entrada)),
     purgarVencidos: protegido('auditoria.purgar', (s, ahora) => AuditService.purgarVencidos(s, ahora ? new Date(ahora) : undefined))
   },
   seguridad: {

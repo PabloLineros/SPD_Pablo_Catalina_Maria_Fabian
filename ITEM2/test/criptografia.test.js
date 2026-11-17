@@ -11,9 +11,9 @@ import { PaymentVault } from '../src/crypto/tokenization.js';
 
 test('Llaves: una por finalidad, 256 bits, retiradas de process.env tras cargarse', () => {
   const llavero = describirLlavero();
-  assert.equal(llavero.length, 8);
+  assert.equal(llavero.length, 9);
   assert.ok(llavero.every(l => l.bits === 256));
-  for (const v of ['KEY_CIFRADO_AES256', 'KEY_HMAC_INTEGRIDAD', 'KEY_HMAC_INDICE', 'KEY_HMAC_RESENAS', 'KEY_HMAC_ANALITICA', 'KEY_HMAC_MARKETING', 'KEY_HMAC_AUDITORIA', 'KEY_HMAC_VERIFICACION']) {
+  for (const v of ['KEY_CIFRADO_AES256', 'KEY_HMAC_INTEGRIDAD', 'KEY_HMAC_INDICE', 'KEY_HMAC_RESENAS', 'KEY_HMAC_ANALITICA', 'KEY_HMAC_MARKETING', 'KEY_HMAC_AUDITORIA', 'KEY_HMAC_VERIFICACION', 'KEY_HMAC_ORIGEN']) {
     assert.equal(process.env[v], undefined, `${v} no debe quedar en process.env`);
   }
 });

@@ -9,6 +9,7 @@ import { errores } from '../security/errors.js';
 import { soloCampos, validar } from '../security/validation.js';
 import { logger } from '../security/logger.js';
 import { registrarAuditoria } from '../security/audit.js';
+import { camposDe } from '../security/catalogoAuditoria.js';
 import { LoyaltyService } from './loyaltyService.js';
 import { otorgarConsentimiento, revocarConsentimiento } from './consentService.js';
 
@@ -168,6 +169,9 @@ export class UserService {
     if (datos.aceptaAnalitica === true) otorgarConsentimiento(id, 'ANALITICA_COMPRAS', { canal: 'REGISTRO' });
 
     logger.info('cliente_registrado', { usuarioId: id });
+    registrarAuditoria({ actorId: id, actorRol: 'CLIENTE', accion: 'auth:registro', recurso: `users:${id}`,
+      datos: camposDe(['nombre', 'email', 'direccionDespacho', 'credenciales', ...(telefono ? ['telefono'] : []), ...(guardarMedioPago ? ['medio_pago'] : [])]),
+      resultado: 'EXITO' });
     return { id };
   }
 
@@ -176,6 +180,11 @@ export class UserService {
     autorizar(sesion, PERMISOS.PERFIL_PROPIO_LEER, { propietarioId: userId, recurso: `users:${userId}` });
     const u = bd.obtener('users', userId);
     if (!u) throw errores.noEncontrado('Usuario');
+    // Ver el perfil completo es un acceso a datos personales: se audita aunque sea el propio titular
+    // (permite detectar a un tercero que entró a la cuenta y leyó sus datos).
+    registrarAuditoria({ sesion, accion: PERMISOS.PERFIL_PROPIO_LEER, recurso: `users:${userId}`,
+      datos: camposDe(['nombre', 'email', 'direccionDespacho', ...(u.telefono_cifrado ? ['telefono'] : []), ...(u.guardar_medio_pago ? ['medio_pago'] : [])]),
+      resultado: 'EXITO' });
 
     return {
       id: u.id,
@@ -202,7 +211,7 @@ export class UserService {
       revocarConsentimiento(userId, 'GUARDAR_MEDIO_PAGO', { canal: 'CENTRO_PRIVACIDAD', sesion });
     }
     const { modificados, propagado } = aplicarCambiosPerfil(userId, datos);
-    registrarAuditoria({ sesion, accion: PERMISOS.PERFIL_PROPIO_EDITAR, recurso: `users:${userId}`, resultado: 'EXITO', motivo: `campos=${Object.keys(cambios).join(',')}; propagado=${propagado.length}` });
+    registrarAuditoria({ sesion, accion: PERMISOS.PERFIL_PROPIO_EDITAR, recurso: `users:${userId}`, datos: camposDe(Object.keys(cambios)), resultado: 'EXITO', motivo: `campos=${Object.keys(cambios).join(',')}; propagado=${propagado.length}` });
     return { actualizado: [...modificados, ...('guardarMedioPago' in cambios ? ['guardarMedioPago'] : [])] };
   }
 }

@@ -2,8 +2,9 @@
 
 **Caso:** Plataforma de comercio electrónico NortiShop
 **Integrantes:** Catalina Toledo · María Gerónimo · Pablo Lineros · Fabián Salinas
-**Implementación:** `ITEM2/src/security/detection.js`, `ITEM2/src/services/incidentService.js`, `ITEM2/src/services/auditService.js`
-**Pruebas:** `ITEM2/test/incidentes.test.js`, `ITEM2/test/auditoria.test.js`
+**Implementación:** `ITEM2/src/security/detection.js`, `ITEM2/src/security/catalogoAuditoria.js`, `ITEM2/src/services/incidentService.js`, `ITEM2/src/services/auditService.js`
+**Pruebas:** `ITEM2/test/incidentes.test.js`, `ITEM2/test/auditoria.test.js`, `ITEM2/test/trazabilidad.test.js`
+**Simulacro:** `npm run simulacro` (`ITEM2/src/dev/simulacro.js`), salida en `ITEM2/evidencias/simulacro.txt`
 
 > **Nota normativa.** Los artículos citados deben contrastarse con el texto oficial en bcn.cl antes de la entrega. La Ley 21.719 entra en vigencia el **1 de diciembre de 2026**. Hasta esa fecha rige la Ley 19.628, que no contempla un deber de notificar vulneraciones. El plan se diseña desde ya conforme a la Ley 21.719.
 
@@ -64,7 +65,9 @@ La separación de funciones está implementada en el código:
 | Recurso | Dónde |
 |---|---|
 | Auditoría encadenada con HMAC, de solo inserción, con anclas y verificación | `auditService.verificarCadena()`, `API.auditoria.verificar` |
-| Motor de detección con 6 reglas y umbrales | `security/detection.js` |
+| Catálogo de eventos auditados y campos de cada registro | `security/catalogoAuditoria.js` |
+| Motor de detección con 10 reglas (6 genéricas + 4 propias de NortiShop) | `security/detection.js` |
+| Reconstrucción de la línea de tiempo por origen, sesión, actor o titular | `API.auditoria.reconstruir` (SEGURIDAD y DPO, con motivo) |
 | Preservación de evidencia con SHA-256 | `API.seguridad.preservarEvidencia` |
 | Acciones de contención | `API.seguridad.contener`: revocar sesiones, deshabilitar una cuenta del personal, suspender un rol, suspender exportaciones |
 | Comprobaciones de recuperación | `API.seguridad.recuperar` |
@@ -87,6 +90,24 @@ La separación de funciones está implementada en el código:
 | `EXPORTACION_ANOMALA` | 3 o más exportaciones masivas o de derechos por un mismo actor en 24 horas | Evento sospechoso | Media |
 | `INTEGRIDAD_COMPROMETIDA` | Firma de NortiPuntos inválida o cadena de auditoría rota | Evento sospechoso | Crítica |
 
+**Alertas propias de NortiShop** (usan los campos de trazabilidad: sesión, origen seudonimizado, titular y datos tocados):
+
+| Regla | Qué la dispara | Por qué es propia de NortiShop | Nivel | Severidad |
+|---|---|---|---|---|
+| `TOMA_DE_CUENTA` | Un cliente inicia sesión desde un **origen nunca visto** para su cuenta y, **en esa misma sesión** y dentro de 1 hora: cambia la dirección o el teléfono, **compra con la tarjeta guardada** o pide una copia de sus datos | Es el fraude típico del comercio electrónico: desviar un despacho pagado con la tarjeta tokenizada del cliente | Evento sospechoso | Alta |
+| `ETIQUETAS_ANOMALAS` | LOGISTICA genera la etiqueta de un envío **ya entregado o cancelado** (no la necesita), o **15 o más etiquetas en 1 hora** | La etiqueta es el único punto donde logística ve nombre y dirección en claro | Evento sospechoso | Media |
+| `TICKET_REUTILIZADO` | Un mismo ticket `TCK-` se usa para revelar los datos completos de **3 o más clientes distintos** en 24 horas | Revelar exige ticket y motivo; un ticket corresponde a un caso de un cliente | Evento sospechoso | Alta |
+| `ACCESO_FUERA_DE_HORARIO` | Personal revela datos, genera etiquetas, revierte seudónimos o exporta **fuera de lun-sáb 08:00-21:00** (hora de Chile) | El personal de NortiShop no tiene turnos nocturnos ni dominicales | Alerta | Media |
+
+**Respuesta inicial por alerta propia (playbook):**
+
+| Regla | Primeros pasos de SEGURIDAD |
+|---|---|
+| `TOMA_DE_CUENTA` | Reconstruir por `sesionRef` (o por el `origen` de la alerta de relleno, si existe); preservar evidencia; `REVOCAR_SESIONES` del titular; `CANCELAR_PEDIDO` para cada compra no despachada de esa sesión; forzar cambio de contraseña. |
+| `ETIQUETAS_ANOMALAS` | Reconstruir por `actorId`; confirmar con el jefe de despacho si hubo reimpresiones legítimas; si no, `DESHABILITAR_CUENTA_PERSONAL` y revisar los titulares de las etiquetas. |
+| `TICKET_REUTILIZADO` | Reconstruir por `actorId`; contrastar los titulares revelados con el ticket real; si no corresponden, `SUSPENDER_ROL SOPORTE` o deshabilitar la cuenta y tratarlo como abuso interno. |
+| `ACCESO_FUERA_DE_HORARIO` | Confirmar con la jefatura si había una autorización; si no, tratar la cuenta como posiblemente comprometida (`REVOCAR_SESIONES`) y reconstruir por `actorId`. |
+
 Criterios manuales, que reporta una persona:
 - Credenciales o llaves expuestas, por ejemplo un `.env` en un repositorio público o una contraseña del personal en una filtración.
 - Reclamos de clientes por cambios que no hicieron.
@@ -104,7 +125,13 @@ Una alerta se **descarta** con un motivo documentado (`descartarAlerta`) o se **
 
 ### 3.3 Evaluación del alcance, la gravedad y el impacto
 
-En el análisis (`API.seguridad.analizar`) se registran:
+Antes de registrar el alcance, SEGURIDAD **reconstruye** lo ocurrido con `API.auditoria.reconstruir`, partiendo del sujeto de la alerta (un origen, una sesión, un actor o un titular). La reconstrucción:
+1. Toma los eventos del pivote y agrega todos los de las sesiones que aparecen en ellos (lo que el atacante hizo dentro de una cuenta queda ligado a su sesión).
+2. Entrega las cuentas probadas, las cuentas comprometidas, los titulares afectados y, por titular, los **campos** expuestos o cambiados y su **tipo de dato** (identificación, contacto, dirección, credenciales, financieros, historial).
+3. Lista los cambios (dirección, compras, exportaciones) y los intentos que los controles frenaron.
+4. Verifica la cadena de sellos: si no está íntegra, la reconstrucción no es confiable y se escala como `INTEGRIDAD_COMPROMETIDA`.
+
+El resultado alimenta directamente el análisis (`API.seguridad.analizar`), donde se registran:
 - El período en que ocurrió (desde y hasta).
 - Los **tipos de datos** comprometidos: identificación, contacto, dirección, credenciales, datos financieros, historial de compras, datos sensibles o datos de menores.
 - El **número de titulares** afectados.
@@ -115,7 +142,9 @@ En el análisis (`API.seguridad.analizar`) se registran:
 | Baja | Sin datos personales comprometidos (por ejemplo, un intento de fuerza bruta bloqueado). |
 | Media | Pocos titulares, datos de identificación o contacto, exposición contenida. |
 | Alta | Dirección, credenciales o historial de compras; o más de 100 titulares; o abuso interno. |
-| Crítica | Datos financieros, sensibles o de menores; llaves comprometidas; integridad de la auditoría o de los saldos rota; o más de 1.000 titulares. |
+| Crítica | Datos financieros (incluido el uso no autorizado de la tarjeta guardada), sensibles o de menores de 14 años; llaves comprometidas; integridad de la auditoría o de los saldos rota; o más de 1.000 titulares. |
+
+El sistema aplica estos criterios como **severidad mínima** (`severidadMinima` en `incidentService.js`): al registrar el análisis, quien analiza puede subir la severidad, pero no dejarla por debajo de lo que exigen los tipos de datos y el número de titulares. Si la eleva, el ajuste queda en la bitácora.
 
 ### 3.4 Criterios de escalamiento
 
@@ -141,12 +170,15 @@ Preservar la evidencia hace tres cosas:
 
 Así, revocar sesiones o deshabilitar cuentas no borra rastros.
 
+Además, mientras el incidente esté abierto rige la **retención extendida**: la purga por plazo no borra registros de auditoría ni logs de aplicación posteriores a 24 horas antes del inicio del incidente (`retencionExtendidaDesde` en la respuesta de la purga).
+
 | Acción | Cuándo | Efecto | Responsable |
 |---|---|---|---|
 | `REVOCAR_SESIONES` | Toma de cuenta (de cliente o del personal) | Invalida todos los tokens de sesión del usuario. | SEGURIDAD |
 | `DESHABILITAR_CUENTA_PERSONAL` | Credenciales del personal comprometidas o abuso interno | `activo = false` y sesiones revocadas. **No se borra la cuenta** (es evidencia). | SEGURIDAD |
 | `SUSPENDER_ROL` | Abuso que puede repetirse desde otras cuentas del mismo rol | El rol pierde todos sus permisos hasta la recuperación. No se puede suspender el rol SEGURIDAD. | SEGURIDAD |
 | `SUSPENDER_EXPORTACIONES` | Exportación anómala | Bloquea la exportación de marketing. Los derechos de los titulares siguen disponibles. | SEGURIDAD |
+| `CANCELAR_PEDIDO` | Compra hecha por quien tomó una cuenta | Cancela el pedido antes del despacho y queda en la bitácora del incidente (y, por lo tanto, en las medidas de la notificación). | SEGURIDAD |
 | Rotación de llave | Llave expuesta | Procedimiento manual (§2.3). | ADMINISTRADOR + SEGURIDAD |
 | Aislamiento de un componente | Proveedor comprometido | Revocar su API key y desconectar la integración. | ADMINISTRADOR |
 
@@ -194,7 +226,7 @@ El **Oficial de Privacidad** evalúa (`evaluarNotificacion`) y autoriza (`autori
 | Destinatario | Cuándo corresponde | Plazo | Fundamento |
 |---|---|---|---|
 | **Agencia de Protección de Datos Personales** | Vulneración de las medidas de seguridad que cause la destrucción, filtración, pérdida o alteración accidental o ilícita de datos personales, o el acceso o comunicación no autorizados, cuando exista un riesgo razonable para los derechos y libertades de los titulares | "Por los medios más expeditos posibles y sin dilaciones indebidas". La ley **no fija un número de horas**. Meta interna: dentro de 72 horas desde la confirmación. | Ley 21.719, deber de reportar vulneraciones (art. 14 sexies) |
-| **Titulares afectados** | Cuando la vulneración afecte datos **sensibles**, datos de **niños, niñas y adolescentes**, o datos relativos a **obligaciones económicas, financieras, bancarias o comerciales** (por ejemplo, medios de pago). Comunicación en lenguaje claro y sencillo. | Sin dilaciones indebidas. Si no es posible individualizarlos, mediante un aviso público destacado. | Ley 21.719 (art. 14 sexies) |
+| **Titulares afectados** | Cuando la vulneración afecte datos **sensibles**, datos de **niños y niñas menores de 14 años**, o datos relativos a **obligaciones económicas, financieras, bancarias o comerciales** (por ejemplo, medios de pago). Comunicación en lenguaje claro y sencillo, que singularice los datos afectados, las posibles consecuencias y las medidas adoptadas. | Sin dilaciones indebidas, a cada titular afectado. Si no es posible, mediante un aviso en un medio de comunicación social masivo y de alcance nacional. | Ley 21.719 (art. 14 sexies) |
 | **Titulares, por buena práctica** | Credenciales comprometidas, aunque no sea legalmente obligatorio | Junto con la notificación a la Agencia | Decisión del DPO |
 | **Pasarela de pago y, por su intermedio, las marcas de tarjetas** | Cualquier compromiso de tokens o de datos de transacciones | De inmediato, según el contrato | PCI DSS v4.0 (req. 12.10) y contrato con la pasarela |
 | **CSIRT Nacional** | Solo si NortiShop fuera calificado como prestador de servicios esenciales u operador de importancia vital. **Hoy no aplica.** | Alerta temprana en 3 horas, actualización en 72 horas e informe final en 15 días | Ley 21.663, Marco de Ciberseguridad |
@@ -216,7 +248,7 @@ El borrador que genera `autorizarNotificacion` incluye los 7 contenidos exigidos
 | Fecha de detección y período en que ocurrió | `fecha_deteccion`, `periodo` |
 | Tipos de datos potencialmente afectados | `datos_afectados` (y `titulares_afectados`) |
 | Posibles consecuencias o riesgos | `posibles_consecuencias` |
-| Medidas de contención y mitigación | `medidas_adoptadas` (tomadas de la bitácora de contención) |
+| Medidas de contención y mitigación | `medidas_adoptadas` (tomadas de la bitácora: acciones de contención y medidas de erradicación). El art. 14 sexies exige además registrar las medidas adoptadas para gestionar la vulneración y precaver incidentes futuros. |
 | Recomendaciones para reducir los riesgos | `recomendaciones` (por tipo de dato, por ejemplo "cambie su contraseña") |
 | Canal de contacto | `contacto` (`privacidad@nortishop.test`) |
 
@@ -239,18 +271,23 @@ La bitácora (`incidente_acciones`) conserva la secuencia completa de fases, con
 
 ---
 
-## 8. Ejemplo ejecutado (evidencia)
+## 8. Ejemplos ejecutados (evidencia)
 
-`npm run demo:privacidad` (sección 4) y `test/incidentes.test.js` recorren un incidente real de punta a punta:
+### 8.1 Abuso interno (etapa anterior)
 
-1. Un agente de soporte revela datos completos 5 veces en una hora, lo que genera la alerta `REVELACIONES_PII_ANOMALAS` (Alta).
-2. SEGURIDAD abre el incidente desde la alerta y confirma el alcance: identificación, contacto y dirección, 1 titular.
-3. El intento de contener sin evidencia es rechazado. Se preserva la evidencia con SHA-256 y verificación de la cadena.
-4. Contención: se suspende el rol SOPORTE y se deshabilita la cuenta comprometida, cuyas sesiones quedan revocadas.
-5. Erradicación con causa raíz documentada.
-6. SEGURIDAD intenta recuperar y es denegado. El ADMINISTRADOR intenta recuperar con una alerta crítica abierta y es rechazado. Tras revisar la alerta, la recuperación procede y los controles se levantan.
-7. El DPO evalúa (corresponde notificar a la Agencia) y autoriza; se genera el borrador con los 7 contenidos.
-8. Cierre con lecciones aprendidas. La bitácora contiene las 7 fases.
+`npm run demo:privacidad` (sección 4) y `test/incidentes.test.js`: un agente de soporte revela datos completos 5 veces en una hora (`REVELACIONES_PII_ANOMALAS`); el incidente recorre las 7 fases, con suspensión del rol SOPORTE y notificación a la Agencia.
+
+### 8.2 Simulacro de esta etapa: relleno de credenciales y toma de cuenta
+
+`npm run simulacro` (salida en `ITEM2/evidencias/simulacro.txt`) y `test/trazabilidad.test.js`:
+
+1. **Ataque** (desde un único origen, IP de documentación): prueba 11 correos de una lista filtrada; entra a la cuenta de Ana con su contraseña reutilizada; ve su perfil, cambia la dirección de despacho, compra con la tarjeta guardada e intenta pedir la portabilidad sin el código del correo.
+2. **Detección:** `RELLENO_CREDENCIALES` (sujeto = seudónimo del origen) y `TOMA_DE_CUENTA` (sujeto = Ana).
+3. **Análisis:** reconstrucción desde el origen de la alerta: 11 cuentas probadas (una real, Bruno, sin éxito), 1 comprometida (Ana), sus campos expuestos y los dos cambios (dirección y compra con `medio=TOKEN_GUARDADO`); la portabilidad aparece como frenada.
+4. **Retención extendida:** una purga lanzada con el incidente abierto no borra nada.
+5. **Contención:** evidencia preservada (SHA-256), sesiones de Ana revocadas (`REVOCAR_SESIONES`) y pedido fraudulento cancelado antes del despacho (`CANCELAR_PEDIDO`). La severidad sube de alta a **crítica** en el análisis, porque se usó la tarjeta guardada (datos financieros).
+6. **Erradicación, recuperación, notificación y cierre:** la evaluación indica notificar a la Agencia y también a la titular (hay datos financieros), y avisar a la pasarela de pago.
+7. **Comprobación:** las 11 comprobaciones entre lo reconstruido y el guion del atacante son correctas, la cadena está íntegra y la auditoría no contiene correos, nombres, direcciones, contraseñas ni IPs.
 
 ---
 
@@ -259,4 +296,5 @@ La bitácora (`incidente_acciones`) conserva la secuencia completa de fases, con
 - **Simulaciones:** la detección corre en memoria del proceso y el correo es simulado. En producción, las alertas deben llegar a un canal de guardia (paging) y la auditoría a un almacenamiento inmutable (WORM).
 - **Rotación de llaves:** es manual. Falta un KMS con rotación y re-cifrado automáticos.
 - **MFA:** no está implementado para el personal. Es la principal medida preventiva pendiente.
-- **Ejercicios:** el plan debe probarse con un ejercicio de mesa (*tabletop*) cada 6 meses y actualizarse con sus resultados.
+- **Ejercicios:** el plan debe probarse con un ejercicio de mesa (*tabletop*) cada 6 meses y actualizarse con sus resultados. El simulacro técnico (`npm run simulacro`) se ejecuta en cada cambio como prueba automática.
+- **Orígenes conocidos:** la regla `TOMA_DE_CUENTA` guarda en memoria los orígenes de cada cuenta; en producción deben persistirse (solo seudónimos) para no perder la línea base al reiniciar.

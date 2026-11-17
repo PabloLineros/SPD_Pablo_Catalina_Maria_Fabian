@@ -22,6 +22,8 @@ const intentos = new Map(); // email_hmac -> { fallos, bloqueadoHasta }
 const BLOQUEO_MS = 15 * 60 * 1000;
 
 const hashToken = (token) => crypto.createHash('sha256').update(String(token)).digest('hex');
+/** Referencia de sesión para la auditoría: prefijo del SHA-256 del token (el token no se guarda). */
+const refSesion = (idSesion) => `ses:${idSesion.slice(0, 16)}`;
 
 export async function iniciarSesion({ email, password } = {}) {
   const emailHmac = indiceCiegoEmail(email ?? '');
@@ -46,15 +48,17 @@ export async function iniciarSesion({ email, password } = {}) {
       bloqueadoHasta: fallos >= CONFIG.MAX_INTENTOS_LOGIN ? Date.now() + BLOQUEO_MS : 0
     });
     logger.warn('login_fallido', { cuenta: emailHmac.slice(0, 12), fallos });
-    registrarAuditoria({ actorId: cuentaRef, actorRol: 'ANONIMO', accion: 'auth:login', recurso: cuentaRef, resultado: 'FALLIDO', motivo: `fallos=${fallos}` });
+    // titular: id interno de la cuenta atacada si existe (permite saber qué titulares reales fueron blanco).
+    registrarAuditoria({ actorId: cuentaRef, actorRol: 'ANONIMO', accion: 'auth:login', recurso: cuentaRef, titular: cuenta?.id ?? null, resultado: 'FALLIDO', motivo: `fallos=${fallos}` });
     throw errores.credencialesInvalidas();
   }
   intentos.delete(emailHmac);
 
   const token = crypto.randomBytes(32).toString('base64url');
   const ahora = new Date();
+  const idSesion = hashToken(token);
   bd.insertar('sesiones', {
-    id: hashToken(token),
+    id: idSesion,
     usuario_id: cuenta.id,
     tipo: cliente ? 'CLIENTE' : 'PERSONAL',
     rol: cliente ? ROLES.CLIENTE : personal.rol,
@@ -62,7 +66,7 @@ export async function iniciarSesion({ email, password } = {}) {
     created_at: ahora.toISOString()
   });
   logger.info('login_exitoso', { usuarioId: cuenta.id, rol: cliente ? ROLES.CLIENTE : personal.rol });
-  registrarAuditoria({ actorId: cuenta.id, actorRol: cliente ? ROLES.CLIENTE : personal.rol, accion: 'auth:login', recurso: `cuenta:${cuenta.id}`, resultado: 'EXITO' });
+  registrarAuditoria({ actorId: cuenta.id, actorRol: cliente ? ROLES.CLIENTE : personal.rol, accion: 'auth:login', recurso: `cuenta:${cuenta.id}`, titular: cuenta.id, resultado: 'EXITO', sesionRef: refSesion(idSesion) });
 
   return { token, rol: cliente ? ROLES.CLIENTE : personal.rol, usuarioId: cuenta.id, expiraEnMinutos: CONFIG.SESSION_TTL_MINUTOS };
 }
@@ -82,17 +86,20 @@ export function resolverSesion(token) {
       bd.eliminar('sesiones', registro.id);
       throw errores.noAutenticado();
     }
-    return { usuarioId: p.id, rol: p.rol, tipo: 'PERSONAL' };
+    return { usuarioId: p.id, rol: p.rol, tipo: 'PERSONAL', sesionRef: refSesion(registro.id) };
   }
   if (!bd.obtener('users', registro.usuario_id)) {
     bd.eliminar('sesiones', registro.id);
     throw errores.noAutenticado();
   }
-  return { usuarioId: registro.usuario_id, rol: ROLES.CLIENTE, tipo: 'CLIENTE' };
+  return { usuarioId: registro.usuario_id, rol: ROLES.CLIENTE, tipo: 'CLIENTE', sesionRef: refSesion(registro.id) };
 }
 
 export function cerrarSesion(token) {
-  bd.eliminar('sesiones', hashToken(token));
+  const registro = typeof token === 'string' ? bd.obtener('sesiones', hashToken(token)) : null;
+  if (!registro) return;
+  bd.eliminar('sesiones', registro.id);
+  registrarAuditoria({ actorId: registro.usuario_id, actorRol: registro.rol, accion: 'auth:logout', recurso: `cuenta:${registro.usuario_id}`, resultado: 'EXITO', sesionRef: refSesion(registro.id) });
 }
 
 /** Invalida todas las sesiones de un usuario (supresión de cuenta, desactivación). */

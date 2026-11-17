@@ -123,6 +123,11 @@ export class OrderService {
     guardarItems(orderId, lineas);
     crearEnvio(orderId, 'REGISTRADO');
     const puntosGanados = LoyaltyService.acreditarCompra(userId, total);
+    // Compra: se usa la dirección del titular y, si existe, su medio de pago guardado (un tercero que
+    // tomó la cuenta podría comprar con él: el motivo deja constancia de qué medio se usó).
+    registrarAuditoria({ sesion, accion: 'pedido:crear', recurso: `orders:${orderId}`, titular: userId,
+      datos: ['direccion', 'pedidos', ...(tokenGuardado ? ['medio_pago'] : []), ...(factura ? ['facturacion'] : [])],
+      resultado: 'EXITO', motivo: `medio=${tokenGuardado ? 'TOKEN_GUARDADO' : 'TARJETA_UNICA'}; total_clp=${total}` });
 
     return { id: orderId, total_clp: total, estado: 'PAGADO', tipoDocumento, tarjeta_last4: pago.last4 ?? (tokenGuardado ? user.tarjeta_last4 : null), puntosGanados };
   }
@@ -130,6 +135,7 @@ export class OrderService {
   /** Historial de pedidos propios (sin dirección: el cliente ya la ve en su perfil). */
   static listarPedidosPropios(sesion, userId) {
     autorizar(sesion, PERMISOS.PEDIDOS_PROPIOS_LEER, { propietarioId: userId, recurso: `orders:user:${userId}` });
+    registrarAuditoria({ sesion, accion: PERMISOS.PEDIDOS_PROPIOS_LEER, recurso: `orders:user:${userId}`, resultado: 'EXITO' });
     return bd.seleccionar('orders', o => o.user_id === userId).map(o => ({
       id: o.id,
       fecha: o.created_at,
@@ -175,6 +181,8 @@ export class OrderService {
     });
     guardarItems(id, lineas);
     crearEnvio(id, 'INVITADO');
+    registrarAuditoria({ actorId: `invitado:${id}`, actorRol: 'ANONIMO', accion: 'invitado:pedido:crear', recurso: `orders_invitado:${id}`,
+      titular: `invitado:${id}`, datos: ['nombre', 'email', 'direccion', 'medio_pago', ...(telefono ? ['telefono'] : [])], resultado: 'EXITO' });
 
     // En producción el token viaja solo por correo (enlace HTTPS); nunca se registra en logs.
     return { tokenSeguimiento, total_clp: total };
@@ -185,6 +193,7 @@ export class OrderService {
     validar.uuid(tokenSeguimiento, 'token de seguimiento');
     const o = bd.buscarUno('orders_invitado', x => x.token_seguimiento === tokenSeguimiento);
     if (!o) throw errores.noEncontrado('Pedido');
+    registrarAuditoria({ actorId: `invitado:${o.id}`, actorRol: 'ANONIMO', accion: 'invitado:pedido:consultar', recurso: `orders_invitado:${o.id}`, titular: `invitado:${o.id}`, resultado: 'EXITO' });
     return { estado: o.estado, total_clp: o.total_clp, comuna_envio: o.comuna_envio, fecha: o.created_at.slice(0, 10) };
   }
 
@@ -199,20 +208,29 @@ export class OrderService {
 
   static cancelarPedido(sesion, orderId) {
     autorizar(sesion, PERMISOS.PEDIDOS_GESTIONAR, { recurso: `orders:${orderId}` });
-    validar.uuid(orderId, 'orderId');
-    const tabla = bd.obtener('orders', orderId) ? 'orders' : bd.obtener('orders_invitado', orderId) ? 'orders_invitado' : null;
-    if (!tabla) throw errores.noEncontrado('Pedido');
-    const pedido = bd.obtener(tabla, orderId);
-    if (['DESPACHADO', 'ENTREGADO', 'CANCELADO'].includes(pedido.estado)) throw errores.conflicto('El pedido ya no puede cancelarse.');
-
-    const cambios = { estado: 'CANCELADO' };
-    if (tabla === 'orders_invitado') cambios.eliminar_contacto_desde = fechaRetencion();
-    bd.actualizar(tabla, orderId, cambios);
-    const envio = bd.buscarUno('envios', e => e.order_id === orderId);
-    if (envio) bd.actualizar('envios', envio.id, { estado_envio: 'CANCELADO', updated_at: new Date().toISOString() });
+    const r = cancelarPedidoInterno(orderId);
     registrarAuditoria({ sesion, accion: PERMISOS.PEDIDOS_GESTIONAR, recurso: `orders:${orderId}`, resultado: 'PERMITIDO', motivo: 'cancelar' });
-    return { id: orderId, estado: 'CANCELADO' };
+    return r;
   }
+}
+
+/**
+ * Cancela un pedido aún no despachado (uso interno: gestión de pedidos y contención de incidentes).
+ * Quien la llama verifica el permiso y deja su propio registro de auditoría.
+ */
+export function cancelarPedidoInterno(orderId) {
+  validar.uuid(orderId, 'orderId');
+  const tabla = bd.obtener('orders', orderId) ? 'orders' : bd.obtener('orders_invitado', orderId) ? 'orders_invitado' : null;
+  if (!tabla) throw errores.noEncontrado('Pedido');
+  const pedido = bd.obtener(tabla, orderId);
+  if (['DESPACHADO', 'ENTREGADO', 'CANCELADO'].includes(pedido.estado)) throw errores.conflicto('El pedido ya no puede cancelarse.');
+
+  const cambios = { estado: 'CANCELADO' };
+  if (tabla === 'orders_invitado') cambios.eliminar_contacto_desde = fechaRetencion();
+  bd.actualizar(tabla, orderId, cambios);
+  const envio = bd.buscarUno('envios', e => e.order_id === orderId);
+  if (envio) bd.actualizar('envios', envio.id, { estado_envio: 'CANCELADO', updated_at: new Date().toISOString() });
+  return { id: orderId, estado: 'CANCELADO' };
 }
 
 export function fechaRetencion(desde = new Date(), dias = CONFIG.RETENCION_INVITADO_DIAS) {

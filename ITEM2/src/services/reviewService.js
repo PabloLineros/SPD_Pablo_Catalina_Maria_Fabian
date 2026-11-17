@@ -4,6 +4,7 @@ import { autorizar, PERMISOS } from '../security/rbac.js';
 import { errores } from '../security/errors.js';
 import { soloCampos, validar, sanitizarTexto } from '../security/validation.js';
 import { seudonimoRegistrado } from './privacyService.js';
+import { registrarAuditoria } from '../security/audit.js';
 
 /**
  * Reseñas públicas con autor SEUDONIMIZADO.
@@ -33,6 +34,8 @@ export class ReviewService {
       comentario: entrada.comentario ? sanitizarTexto(entrada.comentario) : null,
       created_at: new Date().toISOString()
     });
+    // En la auditoría (no pública) sí queda el titular interno: permite atender derechos y abusos.
+    registrarAuditoria({ sesion, accion: 'resena:publicar', recurso: `resenas:${id}`, titular: sesion.usuarioId, resultado: 'EXITO' });
     return { id };
   }
 

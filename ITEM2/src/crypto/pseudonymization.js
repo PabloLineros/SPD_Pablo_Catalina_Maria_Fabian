@@ -50,6 +50,17 @@ export function huellaSupresion(userId) {
   return hmacHex(FINALIDADES.INDICE, `supresion:${userId}`);
 }
 
+/**
+ * Seudónimo del origen de red para la auditoría: HMAC(K_origen, ip) truncado a 16 hex (64 bits).
+ * Permite agrupar los eventos que vienen de un mismo origen (p. ej. un atacante que prueba muchas
+ * cuentas) sin guardar la dirección IP. Sin la llave no se puede volver a la IP.
+ */
+export function referenciaOrigen(ip) {
+  if (!ip) return null;
+  const normalizada = String(ip).trim().toLowerCase().replace(/^::ffff:/, '');
+  return `org:${hmacHex(FINALIDADES.ORIGEN, normalizada).slice(0, 16)}`;
+}
+
 /** Referencia opaca aleatoria (UUID v4, 122 bits de entropía). */
 export function referenciaAleatoria() {
   return crypto.randomUUID();

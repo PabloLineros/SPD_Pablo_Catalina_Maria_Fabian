@@ -86,6 +86,7 @@ export class LoyaltyService {
   static saldoPropio(sesion, userId) {
     autorizar(sesion, PERMISOS.PUNTOS_PROPIOS, { propietarioId: userId, recurso: `loyalty:${userId}` });
     const cuenta = cargarCuentaVerificada(userId);
+    registrarAuditoria({ sesion, accion: 'puntos:consultar', recurso: `loyalty:${userId}`, resultado: 'EXITO' });
     return { saldo: cuenta.saldo_puntos, version: cuenta.version, integridad: 'VERIFICADA' };
   }
 
@@ -96,6 +97,7 @@ export class LoyaltyService {
     const cuenta = cargarCuentaVerificada(userId);
     if (cuenta.saldo_puntos < puntos) throw errores.datoInvalido('Saldo de puntos insuficiente.');
     const nueva = registrarMovimiento(userId, -puntos, 'CANJE', cuenta);
+    registrarAuditoria({ sesion, accion: 'puntos:canjear', recurso: `loyalty:${userId}`, resultado: 'EXITO', motivo: `puntos=${puntos}; version=${nueva.version}` });
     return { puntosCanjeados: puntos, nuevoSaldo: nueva.saldo_puntos };
   }
 }

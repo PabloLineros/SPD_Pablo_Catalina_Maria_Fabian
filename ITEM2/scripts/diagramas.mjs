@@ -1,5 +1,7 @@
 // Convierte los bloques ```mermaid del informe en imágenes PNG (ITEM2/evidencias/diagramas/).
-// Uso (desde ITEM2): node scripts/diagramas.mjs
+// Uso (desde ITEM2): node scripts/diagramas.mjs [informe.md nombre1,nombre2,...]
+//   Sin argumentos: diagramas D1-D4 de INFORME_CONSENTIMIENTO_DERECHOS_AUDITORIA.md.
+//   Ej.: node scripts/diagramas.mjs ../INFORME_TRAZABILIDAD.md D5_flujo_trazabilidad,D6_fases_respuesta
 // Requiere Google Chrome o Microsoft Edge e internet (carga Mermaid desde cdn.jsdelivr.net).
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -8,9 +10,9 @@ import os from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ITEM2 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const INFORME = path.join(ITEM2, '..', 'INFORME_CONSENTIMIENTO_DERECHOS_AUDITORIA.md');
+const INFORME = process.argv[2] ? path.resolve(process.argv[2]) : path.join(ITEM2, '..', 'INFORME_CONSENTIMIENTO_DERECHOS_AUDITORIA.md');
 const SALIDA = path.join(ITEM2, 'evidencias', 'diagramas');
-const NOMBRES = ['D1_modelo_datos_consentimiento', 'D2_estados_consentimiento', 'D3_modelo_datos_derechos', 'D4_flujo_solicitud_derechos'];
+const NOMBRES = process.argv[3] ? process.argv[3].split(',') : ['D1_modelo_datos_consentimiento', 'D2_estados_consentimiento', 'D3_modelo_datos_derechos', 'D4_flujo_solicitud_derechos'];
 const NAVEGADOR = [
   'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
   'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
@@ -18,10 +20,10 @@ const NAVEGADOR = [
 ].find(p => fs.existsSync(p));
 if (!NAVEGADOR) throw new Error('No se encontró Chrome ni Edge.');
 
-const bloques = [...fs.readFileSync(INFORME, 'utf8').matchAll(/```mermaid\n([\s\S]*?)```/g)].map(m => m[1]);
+const bloques = [...fs.readFileSync(INFORME, 'utf8').replace(/\r\n/g, '\n').matchAll(/```mermaid\n([\s\S]*?)```/g)].map(m => m[1]);
 if (bloques.length !== NOMBRES.length) throw new Error(`El informe tiene ${bloques.length} diagramas y hay ${NOMBRES.length} nombres.`);
 fs.mkdirSync(SALIDA, { recursive: true });
-for (const f of fs.readdirSync(SALIDA)) if (f.endsWith('.png')) fs.rmSync(path.join(SALIDA, f));
+for (const n of NOMBRES) fs.rmSync(path.join(SALIDA, `${n}.png`), { force: true }); // solo los que se regeneran
 
 const esperar = (ms) => new Promise(r => setTimeout(r, ms));
 const perfil = fs.mkdtempSync(path.join(os.tmpdir(), 'cdp-'));

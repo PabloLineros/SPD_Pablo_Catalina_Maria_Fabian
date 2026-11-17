@@ -1,4 +1,4 @@
-# NortiShop — Protección de datos personales: minimización, RBAC, consentimiento, derechos, auditoría e incidentes
+# NortiShop — Protección de datos personales: minimización, RBAC, consentimiento, derechos, auditoría, trazabilidad e incidentes
 
 **Caso de estudio:** Plataforma de comercio electrónico NortiShop
 **Integrantes:** Catalina Toledo · María Gerónimo · Pablo Lineros · Fabián Salinas
@@ -15,8 +15,9 @@ Prototipo del backend de NortiShop, con un servidor HTTP y una pantalla web (el 
 | [`03_rbac.sql`](../03_rbac.sql) | Roles y permisos en la base de datos. |
 | [`04_consentimiento_derechos_auditoria.sql`](../04_consentimiento_derechos_auditoria.sql) | Consentimiento, derechos, auditoría sellada e incidentes. |
 | [`05_ejercicio_derechos.sql`](../05_ejercicio_derechos.sql) | Canal sin cuenta, folio, rectificaciones, descargas de un solo uso, terceros, oposición y bloqueo. |
+| [`06_trazabilidad.sql`](../06_trazabilidad.sql) | Catálogo de eventos auditados, campos de trazabilidad, índices de reconstrucción, conservación y retención extendida. |
 
-Documentos de diseño: [`INFORME_HITO2.md`](../INFORME_HITO2.md), [`INFORME_CONSENTIMIENTO_DERECHOS_AUDITORIA.md`](../INFORME_CONSENTIMIENTO_DERECHOS_AUDITORIA.md) y [`PLAN_RESPUESTA_INCIDENTES.md`](../PLAN_RESPUESTA_INCIDENTES.md).
+Documentos de diseño: [`INFORME_HITO2.md`](../INFORME_HITO2.md), [`INFORME_CONSENTIMIENTO_DERECHOS_AUDITORIA.md`](../INFORME_CONSENTIMIENTO_DERECHOS_AUDITORIA.md) y [`PLAN_RESPUESTA_INCIDENTES.md`](../PLAN_RESPUESTA_INCIDENTES.md) (actualizado con las alertas propias, la reconstrucción y el simulacro).
 
 ### Controles de las etapas anteriores
 
@@ -32,7 +33,7 @@ Documentos de diseño: [`INFORME_HITO2.md`](../INFORME_HITO2.md), [`INFORME_CONS
    - Reporte agregado con k = 5.
    - Los contactos de invitados se borran al vencer el plazo de conservación.
 4. **RBAC.** Nueve roles con permisos en lista blanca y verificación de que el recurso pertenezca al usuario.
-5. **Gestión de llaves.** Una llave por finalidad (ocho en total). Se retiran de `process.env` al cargarse y solo `src/crypto/` puede usarlas.
+5. **Gestión de llaves.** Una llave por finalidad (nueve en total). Se retiran de `process.env` al cargarse y solo `src/crypto/` puede usarlas.
 
 ### Controles de esta etapa
 
@@ -55,9 +56,17 @@ Documentos de diseño: [`INFORME_HITO2.md`](../INFORME_HITO2.md), [`INFORME_CONS
    - Retención de 24 meses con constancia de cada purga.
    - Sin datos personales.
 9. **Detección y respuesta a incidentes.**
-   - Seis reglas de detección.
+   - Seis reglas de detección genéricas.
    - Flujo de incidente con evidencia obligatoria antes de contener; contención efectiva (suspender un rol, deshabilitar cuentas, revocar sesiones, suspender exportaciones).
    - Recuperación con comprobaciones, evaluación de notificación según la Ley 21.719 y cierre con lecciones aprendidas.
+
+### Controles de la etapa de trazabilidad
+
+10. **Catálogo de eventos auditados** (`src/security/catalogoAuditoria.js`): cada acción tiene categoría, los nombres de los campos personales que toca y su nivel de exposición. Un evento sin entrada queda como `NO_CATALOGADO` y las pruebas lo rechazan.
+11. **Registro de accesos y operaciones sin guardar los datos.** Cada registro agrega `titular_ref` (de quién son los datos), `datos` (qué campos, solo nombres), `sesion_ref` (prefijo del SHA-256 del token), `origen_ref` (HMAC de la IP con una llave propia; la IP no se guarda) y `correlacion_id`. Todos entran en el sello encadenado. Se agregaron a la auditoría la lectura del perfil, el historial de pedidos, el registro, el cierre de sesión, las compras, la consulta y el canje de NortiPuntos, la publicación de reseñas y el seguimiento de pedidos sin cuenta.
+12. **Protección de los registros.** Reconstruir por titular, sesión u origen (`auditoria:reconstruir`) es solo de SEGURIDAD y OFICIAL_PRIVACIDAD, con motivo obligatorio. Conservación definida para auditoría (24 meses), alertas (24 meses), evidencias (5 años) y logs de aplicación (90 días), con **retención extendida** mientras haya un incidente abierto.
+13. **Cuatro alertas propias de NortiShop:** `TOMA_DE_CUENTA`, `ETIQUETAS_ANOMALAS`, `TICKET_REUTILIZADO` y `ACCESO_FUERA_DE_HORARIO`.
+14. **Simulacro** (`npm run simulacro`): relleno de credenciales, toma de cuenta y compra con la tarjeta guardada; la auditoría permite reconstruirlo y se compara con el guion del atacante.
 
 > **Alcance:** proyecto académico. La base de datos, la pasarela de pago y el proveedor de correo son simulaciones en memoria. No acredita cumplimiento de PCI DSS ni de la Ley 21.719.
 
@@ -83,8 +92,10 @@ ITEM2/
 │   ├── infra/                # Proveedor de correo y terceros SIMULADOS (con constancia)
 │   ├── security/
 │   │   ├── rbac.js           # Roles, permisos, matriz, autorizar() y suspensión de roles
-│   │   ├── audit.js          # Auditoría sellada (disparador + categorías)
-│   │   ├── detection.js      # Reglas de detección de eventos sospechosos
+│   │   ├── audit.js          # Auditoría sellada (disparador + campos de trazabilidad)
+│   │   ├── catalogoAuditoria.js # Qué se audita, con qué campos y qué datos toca cada evento
+│   │   ├── contexto.js       # Origen seudonimizado, sesión y correlación de cada solicitud
+│   │   ├── detection.js      # Reglas de detección (genéricas y propias de NortiShop)
 │   │   ├── logger.js         # Registros con redacción automática
 │   │   ├── errors.js         # Errores con código y mensaje público
 │   │   └── validation.js     # Lista blanca de campos, validaciones y enmascaramiento
@@ -92,10 +103,12 @@ ITEM2/
 │   │                         # logistics, catalog, admin, privacy, consent, rights,
 │   │                         # restriction (oposición y bloqueo), audit, incident
 │   ├── dev/escenario.js      # Datos SINTÉTICOS para demo y pruebas
+│   ├── dev/simulacro.js      # Simulacro de incidente y comparación con el guion
 │   ├── demo.js               # Demo: minimización, seudonimización, RBAC
-│   └── demo-privacidad.js    # Demo: consentimiento, derechos, auditoría, incidentes
+│   ├── demo-privacidad.js    # Demo: consentimiento, derechos, auditoría, incidentes
+│   └── simulacro-incidente.js # npm run simulacro
 ├── evidencias/               # Salidas de demo y pruebas, capturas y diagramas para el informe
-└── test/                     # 93 pruebas automatizadas
+└── test/                     # 106 pruebas automatizadas
 ```
 
 ## 3. Requisitos
@@ -110,7 +123,7 @@ npm install
 npm run generar-env
 ```
 
-`generar-env` crea `.env` con ocho llaves aleatorias, una por finalidad. Si `.env` ya existe, solo agrega las que falten. **Si ya tenías un `.env` de una etapa anterior, vuelve a ejecutarlo**, porque esta etapa agregó `KEY_HMAC_AUDITORIA` y `KEY_HMAC_VERIFICACION`.
+`generar-env` crea `.env` con nueve llaves aleatorias, una por finalidad. Si `.env` ya existe, solo agrega las que falten. **Si ya tenías un `.env` de una etapa anterior, vuelve a ejecutarlo**, porque esta etapa agregó `KEY_HMAC_ORIGEN` (seudónimo del origen de red en la auditoría).
 
 ## 5. Ejecución
 
@@ -118,8 +131,9 @@ npm run generar-env
 |---|---|
 | `npm run servidor` | Levanta el **Centro de privacidad** en `http://127.0.0.1:3000/` con datos sintéticos. Cuenta de prueba: `ana.prueba@ejemplo.test` / `ClaveDePrueba#2026`. Compra sin cuenta: `invitada@ejemplo.test`. |
 | `npm run demo:privacidad` | Demo por consola: consentimiento, derechos, auditoría, incidentes y controles no eludibles. |
+| `npm run simulacro` | Simulacro de incidente: relleno de credenciales, toma de cuenta y compra fraudulenta; reconstrucción desde la auditoría, respuesta por fases y comprobación contra el guion. |
 | `npm start` | Demo por consola de las etapas anteriores: minimización, datos en reposo, seudonimización y RBAC. |
-| `npm test` | Ejecuta las 93 pruebas con llaves efímeras (no usa las de `.env`). |
+| `npm test` | Ejecuta las 106 pruebas con llaves efímeras (no usa las de `.env`). |
 | `npm run matriz` | Imprime la matriz RBAC en Markdown, generada desde `src/security/rbac.js`. |
 | `node scripts/capturas.mjs` | Regenera las capturas de `evidencias/capturas/` (requiere Chrome o Edge). |
 | `node scripts/diagramas.mjs` | Regenera los diagramas de `evidencias/diagramas/` desde el informe (requiere Chrome o Edge e internet). |

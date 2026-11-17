@@ -22,7 +22,8 @@ export const FINALIDADES = Object.freeze({
   ANALITICA: 'analitica',   // Seudónimo en exportaciones analíticas
   MARKETING: 'marketing',   // Seudónimo enviado a la plataforma de correo
   AUDITORIA: 'auditoria',   // Sello encadenado (HMAC) de cada registro de auditoría
-  VERIFICACION: 'verificacion' // HMAC de los códigos de un solo uso (verificación de identidad)
+  VERIFICACION: 'verificacion', // HMAC de los códigos de un solo uso (verificación de identidad)
+  ORIGEN: 'origen'          // Seudónimo del origen de red (IP) en la auditoría: la IP no se guarda
 });
 
 const VARIABLES = Object.freeze({
@@ -33,7 +34,8 @@ const VARIABLES = Object.freeze({
   [FINALIDADES.ANALITICA]: 'KEY_HMAC_ANALITICA',
   [FINALIDADES.MARKETING]: 'KEY_HMAC_MARKETING',
   [FINALIDADES.AUDITORIA]: 'KEY_HMAC_AUDITORIA',
-  [FINALIDADES.VERIFICACION]: 'KEY_HMAC_VERIFICACION'
+  [FINALIDADES.VERIFICACION]: 'KEY_HMAC_VERIFICACION',
+  [FINALIDADES.ORIGEN]: 'KEY_HMAC_ORIGEN'
 });
 
 const llaves = new Map();

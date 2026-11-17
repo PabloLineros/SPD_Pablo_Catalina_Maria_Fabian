@@ -53,5 +53,13 @@ export const logger = {
   error: (evento, datos) => escribir('ERROR', evento, datos),
   /** Copia de los registros (evidencia y pruebas). */
   registros: () => registros.map(r => ({ ...r })),
+  /** Retención de los logs de aplicación: elimina las entradas anteriores a `limiteIso`. */
+  purgar: (limiteIso) => {
+    const antes = registros.length;
+    const vigentes = registros.filter(r => r.ts >= limiteIso);
+    registros.length = 0;
+    registros.push(...vigentes);
+    return antes - vigentes.length;
+  },
   limpiar: () => { registros.length = 0; }
 };

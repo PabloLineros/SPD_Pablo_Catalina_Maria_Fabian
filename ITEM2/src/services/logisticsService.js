@@ -53,7 +53,10 @@ export class LogisticsService {
       direccion = decryptField(pedido.direccion_envio_cifrada, contexto('orders_invitado', 'direccion_envio_cifrada', pedido.id));
     }
 
-    registrarAuditoria({ sesion, accion: 'envios:etiqueta', recurso: `envio:${ref}`, resultado: 'PERMITIDO' });
+    // titular: de quién son el nombre y la dirección descifrados; estado: si el envío aún necesitaba etiqueta.
+    registrarAuditoria({ sesion, accion: 'envios:etiqueta', recurso: `envio:${ref}`,
+      titular: envio.tipo_pedido === 'REGISTRADO' ? pedido.user_id : `invitado:${pedido.id}`,
+      resultado: 'PERMITIDO', motivo: `estado_envio=${envio.estado_envio}` });
     return { ref_envio: ref, destinatario, direccion, comuna: pedido.comuna_envio };
   }
 

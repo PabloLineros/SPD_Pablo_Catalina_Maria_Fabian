@@ -11,6 +11,7 @@ import { enviarCorreo } from '../infra/correo.js';
 import { comunicarATercero } from '../infra/terceros.js';
 import { autorizar, PERMISOS } from '../security/rbac.js';
 import { registrarAuditoria } from '../security/audit.js';
+import { camposDe } from '../security/catalogoAuditoria.js';
 import { errores, AppError } from '../security/errors.js';
 import { soloCampos, validar, enmascarar } from '../security/validation.js';
 import { aplicarCambiosPerfil } from './userService.js';
@@ -120,9 +121,14 @@ function resumen(s) {
 /** Actor de auditoría para quien no tiene sesión: prefijo del índice ciego de su correo. */
 const actorSinCuenta = (s) => ({ usuarioId: `solicitante:${s.titular_ref.slice(0, 12)}`, rol: 'ANONIMO' });
 
+/** Titular de una solicitud para la auditoría: su id interno, o la referencia del solicitante sin cuenta. */
+const titularSolicitud = (s) => s.user_id ?? (s.titular_ref ? `solicitante:${s.titular_ref.slice(0, 12)}` : null);
+/** En la rectificación ejecutada, `datos` son los campos rectificados (sus valores solo quedan cifrados). */
+const datosSolicitud = (s, evento) => (s.tipo === 'RECTIFICACION' && evento === 'ejecutada' && s.campos_solicitados ? camposDe(s.campos_solicitados.split(',')) : undefined);
+
 function transicion(actor, solicitud, cambios, evento, resultado = 'EXITO', motivo = null) {
   const actualizada = bd.actualizar('solicitudes_derechos', solicitud.id, cambios);
-  registrarAuditoria({ sesion: actor, accion: `derechos:${solicitud.tipo.toLowerCase()}:${evento}`, recurso: `solicitud:${solicitud.folio}`, resultado, motivo });
+  registrarAuditoria({ sesion: actor, accion: `derechos:${solicitud.tipo.toLowerCase()}:${evento}`, recurso: `solicitud:${solicitud.folio}`, titular: titularSolicitud(solicitud), datos: datosSolicitud(solicitud, evento), resultado, motivo });
   return actualizada;
 }
 
@@ -144,7 +150,7 @@ async function verificarIdentidad(actor, s, { password, codigo }, passwordHash) 
   if (!claveOk || !codigoOk) {
     const intentos = (verif?.intentos ?? 0) + 1;
     if (verif) bd.actualizar('verificaciones', verif.id, { intentos });
-    registrarAuditoria({ sesion: actor, accion: `derechos:${s.tipo.toLowerCase()}:verificacion`, recurso: `solicitud:${s.folio}`, resultado: 'FALLIDO', motivo: `intento=${intentos}` });
+    registrarAuditoria({ sesion: actor, accion: `derechos:${s.tipo.toLowerCase()}:verificacion`, recurso: `solicitud:${s.folio}`, titular: titularSolicitud(s), resultado: 'FALLIDO', motivo: `intento=${intentos}` });
     if (intentos >= CONFIG.CODIGO_VERIFICACION_MAX_INTENTOS) {
       if (verif) bd.actualizar('verificaciones', verif.id, { usado: true });
       transicion(actor, s, { estado: 'ANULADA', cerrada_el: ahoraIso(), fundamento: 'Se superó el máximo de intentos de verificación.' }, 'anulada', 'FALLIDO', 'MAX_INTENTOS');
@@ -470,7 +476,7 @@ export class RightsService {
       // Aviso al correo actual: si no fue el titular, puede reaccionar antes de que se confirme.
       enviarCorreo({ para: emailRegistrado, asunto: 'NortiShop: solicitud de cambio de correo', cuerpo: 'Se solicitó cambiar el correo de tu cuenta. Si no fuiste tú, cambia tu contraseña.' });
     }
-    registrarAuditoria({ sesion, accion: `derechos:${entrada.tipo.toLowerCase()}:recibida`, recurso: `solicitud:${solicitud.folio}`, resultado: 'EXITO', motivo: solicitud.campos_solicitados ? `campos=${solicitud.campos_solicitados}` : solicitud.objeto });
+    registrarAuditoria({ sesion, accion: `derechos:${entrada.tipo.toLowerCase()}:recibida`, recurso: `solicitud:${solicitud.folio}`, titular: titularSolicitud(solicitud), resultado: 'EXITO', motivo: solicitud.campos_solicitados ? `campos=${solicitud.campos_solicitados}` : solicitud.objeto });
 
     return {
       ...resumen(solicitud),
@@ -538,7 +544,7 @@ export class RightsService {
     if (Date.parse(d.expira_el) <= Date.now()) throw errores.noEncontrado('Descarga (ya usada o vencida)');
     const datos = JSON.parse(decryptField(d.contenido_cifrado, contexto('descargas', 'contenido_cifrado', id)));
     const s = bd.obtener('solicitudes_derechos', d.solicitud_id);
-    registrarAuditoria({ sesion: sesion ?? actorSinCuenta(s), accion: `derechos:${s.tipo.toLowerCase()}:descargada`, recurso: `solicitud:${s.folio}`, resultado: 'EXITO' });
+    registrarAuditoria({ sesion: sesion ?? actorSinCuenta(s), accion: `derechos:${s.tipo.toLowerCase()}:descargada`, recurso: `solicitud:${s.folio}`, titular: titularSolicitud(s), resultado: 'EXITO' });
     return datos;
   }
 
@@ -556,7 +562,7 @@ export class RightsService {
     soloCampos(entrada, { obligatorios: ['tratamiento'] });
     if (!tieneOposicion(userId, entrada.tratamiento)) throw errores.conflicto('No tiene una oposición activa a ese tratamiento.');
     bd.actualizar('oposiciones', `${userId}:${entrada.tratamiento}`, { estado: 'RETIRADA', retirada_el: ahoraIso() });
-    registrarAuditoria({ sesion, accion: 'derechos:oposicion:retirada', recurso: `oposicion:${entrada.tratamiento}`, resultado: 'EXITO' });
+    registrarAuditoria({ sesion, accion: 'derechos:oposicion:retirada', recurso: `oposicion:${entrada.tratamiento}`, titular: userId, resultado: 'EXITO' });
     return { tratamiento: entrada.tratamiento, estado: 'RETIRADA' };
   }
 
@@ -590,7 +596,7 @@ export class RightsService {
       plazo_vence_el: new Date(recibida.getTime() + CONFIG.PLAZO_RESPUESTA_DERECHOS_DIAS * 86_400_000).toISOString()
     });
     registrarVerificacion(solicitud, 'EMAIL_INFORMADO', email);
-    registrarAuditoria({ sesion: actorSinCuenta(solicitud), accion: `derechos:${entrada.tipo.toLowerCase()}:recibida`, recurso: `solicitud:${solicitud.folio}`, resultado: 'EXITO', motivo: 'canal=FORMULARIO_SIN_CUENTA' });
+    registrarAuditoria({ sesion: actorSinCuenta(solicitud), accion: `derechos:${entrada.tipo.toLowerCase()}:recibida`, recurso: `solicitud:${solicitud.folio}`, titular: titularSolicitud(solicitud), resultado: 'EXITO', motivo: 'canal=FORMULARIO_SIN_CUENTA' });
     return { ...resumen(solicitud), mensaje: `Enviamos un código a ${enmascarar.email(email)}. Ingréselo para continuar.` };
   }
 

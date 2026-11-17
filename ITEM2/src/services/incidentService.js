@@ -8,6 +8,7 @@ import { soloCampos, validar } from '../security/validation.js';
 import { verificarCadena, anclarAuditoria, eventosEntre } from './auditService.js';
 import { cuentasConIntegridadRota } from './loyaltyService.js';
 import { cerrarTodasLasSesiones } from './authService.js';
+import { cancelarPedidoInterno } from './orderService.js';
 
 /**
  * Respuesta a incidentes (implementa los procedimientos técnicos del plan PLAN_RESPUESTA_INCIDENTES.md).
@@ -16,7 +17,8 @@ import { cerrarTodasLasSesiones } from './authService.js';
  *  Análisis:      alcance, período, tipos de datos y titulares afectados; o descarte (falso positivo).
  *  Evidencia:     copia de los eventos de auditoría + verificación de la cadena + ancla, con SHA-256.
  *                 Es OBLIGATORIA antes de contener, para no destruir evidencia al revocar o deshabilitar.
- *  Contención:    revocar sesiones, deshabilitar cuentas del personal, suspender un rol, suspender exportaciones.
+ *  Contención:    revocar sesiones, deshabilitar cuentas del personal, suspender un rol, suspender exportaciones,
+ *                 cancelar un pedido no autorizado antes del despacho.
  *  Erradicación:  causa raíz y medidas documentadas.
  *  Recuperación:  ADMINISTRADOR, solo si pasan las comprobaciones (auditoría íntegra, puntos íntegros,
  *                 sin alertas críticas abiertas); levanta los controles de contención.
@@ -28,6 +30,18 @@ const bdSeg = DB.conectar(ROLES_BD.SVC_SEGURIDAD);
 const bdApp = DB.conectar(ROLES_BD.SVC_APP);
 
 const SEVERIDADES = ['BAJA', 'MEDIA', 'ALTA', 'CRITICA'];
+
+/**
+ * Severidad mínima según los criterios del plan (§3.3): quien analiza puede subirla, pero no dejarla
+ * por debajo de lo que exigen los tipos de datos y el número de titulares afectados.
+ */
+export function severidadMinima(tipos, titulares = 0) {
+  if (tipos.some(t => ['FINANCIEROS', 'SENSIBLES', 'MENORES'].includes(t)) || titulares > 1000) return 'CRITICA';
+  if (tipos.some(t => ['DIRECCION', 'CREDENCIALES', 'HISTORIAL_COMPRAS'].includes(t)) || titulares > 100) return 'ALTA';
+  if (tipos.length && titulares > 0) return 'MEDIA';
+  return 'BAJA';
+}
+const mayor = (a, b) => (SEVERIDADES.indexOf(a) >= SEVERIDADES.indexOf(b) ? a : b);
 export const TIPOS_DATOS = Object.freeze({
   IDENTIFICACION: 'nombre e identificador de cuenta',
   CONTACTO: 'correo electrónico y teléfono',
@@ -36,7 +50,7 @@ export const TIPOS_DATOS = Object.freeze({
   FINANCIEROS: 'datos de medios de pago o transacciones',
   HISTORIAL_COMPRAS: 'historial de compras y puntos',
   SENSIBLES: 'datos personales sensibles',
-  MENORES: 'datos de niños, niñas o adolescentes'
+  MENORES: 'datos de niños y niñas menores de 14 años'
 });
 const CONSECUENCIAS = {
   IDENTIFICACION: 'suplantación de identidad o correos fraudulentos dirigidos (phishing)',
@@ -46,8 +60,17 @@ const CONSECUENCIAS = {
   FINANCIEROS: 'intentos de fraude con medios de pago',
   HISTORIAL_COMPRAS: 'exposición de hábitos de consumo',
   SENSIBLES: 'discriminación o daño a la vida privada',
-  MENORES: 'riesgos agravados para niños, niñas o adolescentes'
+  MENORES: 'riesgos agravados para niños y niñas menores de 14 años'
 };
+/** Texto de cada acción de contención para la notificación (medidas adoptadas). */
+const MEDIDAS_CONTENCION = {
+  revocar_sesiones: 'Se cerraron todas las sesiones abiertas de la cuenta afectada.',
+  deshabilitar_cuenta_personal: 'Se deshabilitó la cuenta del personal involucrada.',
+  suspender_rol: 'Se suspendieron los permisos del rol involucrado.',
+  suspender_exportaciones: 'Se suspendieron las exportaciones de datos.',
+  cancelar_pedido: 'Se canceló el pedido no autorizado antes de su despacho.'
+};
+
 const RECOMENDACIONES = {
   CONTACTO: 'Desconfíe de mensajes que pidan datos o pagos a nombre de NortiShop.',
   CREDENCIALES: 'Cambie su contraseña de NortiShop y la de otros servicios donde use la misma.',
@@ -134,15 +157,19 @@ export class IncidentService {
       throw errores.datoInvalido(`tiposDatos admite: ${Object.keys(TIPOS_DATOS).join(', ')}.`);
     }
     if (entrada.severidad && !SEVERIDADES.includes(entrada.severidad)) throw errores.datoInvalido('severidad inválida.');
+    const titulares = Number.isInteger(entrada.titularesAfectados) ? entrada.titularesAfectados : 0;
+    const propuesta = entrada.severidad ?? inc.severidad;
+    const minima = severidadMinima(tipos, titulares);
     const cambios = {
       ocurrido_desde: entrada.ocurridoDesde ?? null,
       ocurrido_hasta: entrada.ocurridoHasta ?? null,
       tipos_datos: tipos.join(','),
-      titulares_afectados: Number.isInteger(entrada.titularesAfectados) ? entrada.titularesAfectados : 0,
-      severidad: entrada.severidad ?? inc.severidad
+      titulares_afectados: titulares,
+      severidad: mayor(propuesta, minima)
     };
     bdSeg.actualizar('incidentes', inc.id, cambios);
-    registrarAccion(sesion, inc, 'ANALISIS', 'alcance_evaluado', `tipos=${cambios.tipos_datos || 'ninguno'}; titulares=${cambios.titulares_afectados}; severidad=${cambios.severidad}`);
+    const ajuste = cambios.severidad !== propuesta ? ` (elevada desde ${propuesta} por los criterios del plan)` : '';
+    registrarAccion(sesion, inc, 'ANALISIS', 'alcance_evaluado', `tipos=${cambios.tipos_datos || 'ninguno'}; titulares=${cambios.titulares_afectados}; severidad=${cambios.severidad}${ajuste}`);
     return obtener(inc.id);
   }
 
@@ -191,8 +218,11 @@ export class IncidentService {
       case 'SUSPENDER_EXPORTACIONES':
         activarControl('exportaciones_suspendidas', inc.id, true);
         break;
+      case 'CANCELAR_PEDIDO': // compra hecha por quien tomó una cuenta: se frena antes del despacho
+        cancelarPedidoInterno(validar.uuid(objetivo, 'objetivo'));
+        break;
       default:
-        throw errores.datoInvalido('accion debe ser REVOCAR_SESIONES, DESHABILITAR_CUENTA_PERSONAL, SUSPENDER_ROL o SUSPENDER_EXPORTACIONES.');
+        throw errores.datoInvalido('accion debe ser REVOCAR_SESIONES, DESHABILITAR_CUENTA_PERSONAL, SUSPENDER_ROL, SUSPENDER_EXPORTACIONES o CANCELAR_PEDIDO.');
     }
     if (inc.estado === 'EN_ANALISIS') bdSeg.actualizar('incidentes', inc.id, { estado: 'CONTENIDO' });
     registrarAccion(sesion, inc, 'CONTENCION', `contencion:${entrada.accion.toLowerCase()}`, `objetivo=${objetivo ?? 'global'}`);
@@ -245,7 +275,7 @@ export class IncidentService {
     const fundamentos = [];
     if (hayAfectados) fundamentos.push('Hay datos personales comprometidos con riesgo razonable para los derechos de los titulares: corresponde informar a la Agencia de Protección de Datos Personales sin dilaciones indebidas.');
     else fundamentos.push('No se comprometieron datos personales: no corresponde notificar a la Agencia; se documenta la decisión.');
-    if (especiales.length) fundamentos.push(`Involucra ${especiales.join(', ')}: corresponde comunicar también a los titulares afectados.`);
+    if (especiales.length) fundamentos.push(`Involucra ${especiales.join(', ')}: corresponde comunicar también a cada titular afectado, en lenguaje claro; si no es posible, mediante un aviso en un medio de comunicación social masivo y de alcance nacional.`);
     if (tipos.includes('CREDENCIALES') && !especiales.length) fundamentos.push('Involucra credenciales: se recomienda comunicar a los titulares para que cambien su contraseña, aunque la ley no lo exija en este caso.');
     if (tipos.includes('FINANCIEROS')) fundamentos.push('Involucra medios de pago: avisar también a la pasarela de pago para que gestione el aviso a las marcas de tarjetas (PCI DSS).');
     return {
@@ -275,8 +305,12 @@ export class IncidentService {
 
   static #borrador(inc) {
     const tipos = inc.tipos_datos ? inc.tipos_datos.split(',') : [];
-    const acciones = bdSeg.seleccionar('incidente_acciones', a => a.incidente_id === inc.id && a.fase === 'CONTENCION' && a.accion.startsWith('contencion:'))
-      .map(a => a.accion.replace('contencion:', '').replaceAll('_', ' '));
+    // Medidas adoptadas (art. 14 sexies): contención y erradicación, tal como quedaron en la bitácora.
+    const bitacora = bdSeg.seleccionar('incidente_acciones', a => a.incidente_id === inc.id);
+    const acciones = [
+      ...new Set(bitacora.filter(a => a.accion.startsWith('contencion:')).map(a => MEDIDAS_CONTENCION[a.accion.slice('contencion:'.length)] ?? a.accion)),
+      ...bitacora.filter(a => a.fase === 'ERRADICACION' && a.detalle).map(a => a.detalle)
+    ];
     const recomendaciones = [...new Set(tipos.map(t => RECOMENDACIONES[t]).filter(Boolean))];
     return {
       descripcion: inc.titulo,

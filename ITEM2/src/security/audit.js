@@ -2,13 +2,17 @@ import crypto from 'node:crypto';
 import { DB, ROLES_BD } from '../db/repository.js';
 import { hmacHex } from '../crypto/integrity.js';
 import { FINALIDADES } from '../crypto/keyring.js';
-import { redactarTexto } from './logger.js';
+import { redactarTexto, logger } from './logger.js';
+import { definicionEvento, CAMPOS_DATOS } from './catalogoAuditoria.js';
+import { contextoActual } from './contexto.js';
 
 /**
  * Registro de auditoría.
  *
- * QUÉ SE REGISTRA: quién (id interno + rol), qué (acción y categoría), sobre qué (tipo:id del
- * recurso), cuándo, resultado y motivo.
+ * QUÉ SE REGISTRA (ver security/catalogoAuditoria.js): quién (id interno + rol), qué (acción y
+ * categoría del catálogo), sobre qué recurso y de qué titular, qué campos personales se tocaron
+ * (solo sus nombres), cuándo, resultado, motivo, y desde dónde (sesión, origen seudonimizado y
+ * correlación de la solicitud).
  * QUÉ NO SE REGISTRA: contraseñas, tokens de sesión o de pago, llaves, códigos de verificación,
  * criptogramas, ni el contenido de los datos personales (nombre, email, dirección, valores
  * rectificados...). Recurso y motivo pasan además por la redacción automática del logger.
@@ -22,7 +26,8 @@ import { redactarTexto } from './logger.js';
 
 export const HASH_GENESIS = '0'.repeat(64);
 
-const CAMPOS_SELLADOS = ['secuencia', 'id', 'created_at', 'actor_id', 'actor_rol', 'accion', 'categoria', 'recurso', 'resultado', 'motivo', 'hash_previo'];
+const CAMPOS_SELLADOS = ['secuencia', 'id', 'created_at', 'actor_id', 'actor_rol', 'accion', 'categoria', 'recurso',
+  'titular_ref', 'datos', 'resultado', 'motivo', 'sesion_ref', 'origen_ref', 'correlacion_id', 'hash_previo'];
 
 export function sellar(fila) {
   return hmacHex(FINALIDADES.AUDITORIA, JSON.stringify(CAMPOS_SELLADOS.map(c => fila[c] ?? null)));
@@ -39,26 +44,16 @@ DB.registrarDisparador('audit_log', (fila, ultima) => {
   return completa;
 });
 
-const REGLAS_CATEGORIA = [
-  [/^auth:/, 'AUTENTICACION'],
-  [/^consentimiento/, 'CONSENTIMIENTO'],
-  [/^derechos:(acceso|portabilidad):(ejecutada|descargada)/, 'EXPORTACION'],
-  [/^derechos:supresion:(ejecutada|parcial)/, 'SUPRESION'],
-  [/^tratamiento:/, 'TRATAMIENTO'], // ejecución (u omisión por oposición/bloqueo) de un tratamiento
-  [/^derechos:rectificacion:ejecutada|^perfil:propio:editar/, 'MODIFICACION'],
-  [/^derechos:/, 'DERECHOS'], // recepción, verificación, rechazo y anulación de solicitudes
-  [/^clientes:pii:revelar|^envios:etiqueta|^seudonimos:revertir|^perfil:propio:leer/, 'ACCESO_SENSIBLE'],
-  [/^marketing:exportar|^copia_desarrollo/, 'EXPORTACION'],
-  [/^roles:|^catalogo:|^pedidos:/, 'ADMINISTRACION'],
-  [/^etl:|^job:/, 'PROCESO_PRIVACIDAD'],
-  [/^seguridad:|^incidente:|^contencion:|^recuperacion:/, 'SEGURIDAD'],
-  [/^auditoria:/, 'AUDITORIA']
-];
-
-function categoriaDe(accion, resultado) {
-  if (resultado === 'DENEGADO') return 'CONTROL_ACCESO';
-  return REGLAS_CATEGORIA.find(([re]) => re.test(accion))?.[1] ?? 'OPERACION';
+function clasificar(accion, resultado) {
+  const def = definicionEvento(accion, resultado);
+  if (!def) logger.error('evento_no_catalogado', { accion });
+  return def ?? { categoria: 'NO_CATALOGADO', datos: [] };
 }
+
+const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+const RECURSO_TITULAR = new RegExp(`^(?:users|cuenta|loyalty|orders:user|consentimiento:[A-Z_]+):(${UUID})$`);
+/** Si no se indica el titular, se deduce del recurso cuando este es un usuario (users:<uuid>...). */
+const titularDe = (recurso) => (recurso ? RECURSO_TITULAR.exec(recurso)?.[1] ?? null : null);
 
 const bd = DB.conectar(ROLES_BD.SVC_APP);
 const suscriptores = [];
@@ -70,19 +65,32 @@ export function suscribirEventos(fn) {
 
 /**
  * @param {{sesion?:object, actorId?:string, actorRol?:string, accion:string, recurso?:string,
- *          resultado:'PERMITIDO'|'DENEGADO'|'EXITO'|'FALLIDO', motivo?:string}} evento
+ *          titular?:string, datos?:string[], resultado:'PERMITIDO'|'DENEGADO'|'EXITO'|'FALLIDO',
+ *          motivo?:string, sesionRef?:string}} evento
+ * `datos` son NOMBRES de campos del vocabulario del catálogo; si se omite, se usan los del catálogo.
  */
-export function registrarAuditoria({ sesion, actorId, actorRol, accion, recurso = null, resultado, motivo = null }) {
+export function registrarAuditoria({ sesion, actorId, actorRol, accion, recurso = null, titular, datos, resultado, motivo = null, sesionRef }) {
+  const def = clasificar(accion, resultado);
+  const ctx = contextoActual();
+  // Los eventos del sistema (alertas, procesos) conservan la correlación con la solicitud que los
+  // disparó, pero no heredan la sesión ni el origen del usuario: no son acciones suyas.
+  const delSistema = (actorRol ?? sesion?.rol) === 'SISTEMA';
+  const campos = resultado === 'DENEGADO' ? [] : (datos ?? def.datos);
   const fila = bd.insertar('audit_log', {
     id: crypto.randomUUID(),
     created_at: new Date().toISOString(),
     actor_id: actorId ?? sesion?.usuarioId ?? 'anonimo',
     actor_rol: actorRol ?? sesion?.rol ?? 'ANONIMO',
     accion,
-    categoria: categoriaDe(accion, resultado),
+    categoria: def.categoria,
     recurso: recurso === null ? null : redactarTexto(recurso).slice(0, 200),
+    titular_ref: titular ?? titularDe(recurso),
+    datos: campos.length ? campos.filter(c => c in CAMPOS_DATOS).join(',') || null : null,
     resultado,
-    motivo: motivo === null ? null : redactarTexto(motivo).slice(0, 300)
+    motivo: motivo === null ? null : redactarTexto(motivo).slice(0, 300),
+    sesion_ref: delSistema ? null : sesionRef ?? sesion?.sesionRef ?? ctx.sesionRef ?? null,
+    origen_ref: delSistema ? null : ctx.origenRef ?? null,
+    correlacion_id: ctx.correlacionId ?? null
   });
   for (const fn of suscriptores) fn(fila);
   return fila;

@@ -13,7 +13,8 @@ for (const variable of [
   'KEY_HMAC_ANALITICA',
   'KEY_HMAC_MARKETING',
   'KEY_HMAC_AUDITORIA',
-  'KEY_HMAC_VERIFICACION'
+  'KEY_HMAC_VERIFICACION',
+  'KEY_HMAC_ORIGEN'
 ]) {
   process.env[variable] = crypto.randomBytes(32).toString('hex');
 }
