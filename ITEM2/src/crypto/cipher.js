@@ -1,102 +1,106 @@
 import crypto from 'node:crypto';
-import { CONFIG } from '../config/env.js';
+import { usarLlave, FINALIDADES } from './keyring.js';
 
 /**
  * Módulo Criptográfico: Cifrado Simétrico Autenticado (AES-256-GCM)
  * Principio: Se utiliza cuando el sistema necesita recuperar el dato original en texto plano
  * (Reversible), como información PII de clientes (email, direcciones, datos tributarios).
- * 
+ *
  * Estándar implementado:
  * - Algoritmo: AES-256 en modo GCM (Galois/Counter Mode).
  * - Tamaño de Llave: 256 bits (32 bytes).
  * - IV (Vector de Inicialización): 96 bits (12 bytes), generado con CSPRNG aleatorio y único por registro.
  * - Tag de Autenticación: 128 bits (16 bytes), asegura Confidencialidad E Integridad (AEAD).
+ * - AAD OBLIGATORIO: '<tabla>.<campo>:<id>'. Amarra el criptograma a su registro y campo:
+ *   copiar el email cifrado de un usuario a otro (o a otra columna) hace fallar el descifrado.
  */
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH_BYTES = 12; // 96 bits recomendado por NIST SP 800-38D
 const AUTH_TAG_LENGTH_BYTES = 16; // 128 bits
+const FORMATO_PAYLOAD = /^[0-9a-f]{24}:[0-9a-f]{32}:([0-9a-f]{2})*$/;
+
+/**
+ * Construye el AAD canónico de un campo cifrado.
+ * @param {string} tabla Nombre de la tabla (ej. 'users').
+ * @param {string} campo Nombre de la columna (ej. 'email_cifrado').
+ * @param {string} id Identificador del registro.
+ */
+export function contexto(tabla, campo, id) {
+  if (!tabla || !campo || !id) {
+    throw new Error('El contexto de cifrado requiere tabla, campo e id.');
+  }
+  return `${tabla}.${campo}:${id}`;
+}
+
+/** Indica si un valor tiene el formato serializado iv:tag:ciphertext. */
+export function esPayloadCifrado(valor) {
+  return typeof valor === 'string' && FORMATO_PAYLOAD.test(valor);
+}
 
 /**
  * Cifra un texto plano utilizando AES-256-GCM con un IV único por operación.
  * @param {string} plaintext Texto a cifrar (ej. email, dirección).
- * @param {string} [associatedData] Datos asociados adicionales (AAD) opcionales para autenticación de contexto.
+ * @param {string} associatedData AAD obligatorio (usar contexto()).
  * @returns {string} Cadena compacta serializada: 'ivHex:authTagHex:ciphertextHex'.
  */
-export function encryptField(plaintext, associatedData = '') {
-  if (plaintext === null || plaintext === undefined || typeof plaintext !== 'string') {
+export function encryptField(plaintext, associatedData) {
+  if (typeof plaintext !== 'string') {
     throw new Error('El dato a cifrar debe ser una cadena de texto.');
   }
-
-  // 1. Generación de IV único por registro usando CSPRNG nativo
-  const iv = crypto.randomBytes(IV_LENGTH_BYTES);
-
-  // 2. Creación del objeto Cipher
-  const cipher = crypto.createCipheriv(ALGORITHM, CONFIG.AES_KEY, iv, {
-    authTagLength: AUTH_TAG_LENGTH_BYTES
-  });
-
-  if (associatedData) {
-    cipher.setAAD(Buffer.from(associatedData, 'utf8'));
+  if (!associatedData || typeof associatedData !== 'string') {
+    throw new Error('El cifrado requiere un contexto (AAD) explícito.');
   }
 
-  // 3. Cifrado de los datos
-  const encrypted = Buffer.concat([
-    cipher.update(plaintext, 'utf8'),
-    cipher.final()
-  ]);
+  const iv = crypto.randomBytes(IV_LENGTH_BYTES);
+  const cipher = crypto.createCipheriv(ALGORITHM, usarLlave(FINALIDADES.CIFRADO), iv, {
+    authTagLength: AUTH_TAG_LENGTH_BYTES
+  });
+  cipher.setAAD(Buffer.from(associatedData, 'utf8'));
 
-  // 4. Obtención del tag de autenticación generado por GCM
+  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
   const authTag = cipher.getAuthTag();
 
-  // 5. Serialización segura para almacenamiento en base de datos
   return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted.toString('hex')}`;
 }
 
 /**
- * Descifra un dato cifrado con AES-256-GCM y valida su etiqueta de autenticación (auth tag).
+ * Descifra un dato cifrado con AES-256-GCM y valida su etiqueta de autenticación.
+ * El mensaje de error es genérico a propósito: no revela si falló la llave, el tag o el AAD.
  * @param {string} encryptedPayload Cadena serializada 'ivHex:authTagHex:ciphertextHex'.
- * @param {string} [associatedData] Mismo AAD utilizado durante el cifrado.
+ * @param {string} associatedData Mismo AAD utilizado durante el cifrado.
  * @returns {string} Texto plano original recuperado.
- * @throws {Error} Si el dato fue manipulado, la llave es incorrecta o el auth tag no coincide.
  */
-export function decryptField(encryptedPayload, associatedData = '') {
-  if (!encryptedPayload || typeof encryptedPayload !== 'string') {
-    throw new Error('El payload cifrado es inválido.');
+export function decryptField(encryptedPayload, associatedData) {
+  if (!esPayloadCifrado(encryptedPayload)) {
+    throw errorDescifrado();
+  }
+  if (!associatedData || typeof associatedData !== 'string') {
+    throw new Error('El descifrado requiere un contexto (AAD) explícito.');
   }
 
-  const parts = encryptedPayload.split(':');
-  if (parts.length !== 3) {
-    throw new Error('Formato de payload cifrado no reconocido (se esperaba iv:tag:data).');
-  }
-
-  const [ivHex, authTagHex, ciphertextHex] = parts;
-  const iv = Buffer.from(ivHex, 'hex');
-  const authTag = Buffer.from(authTagHex, 'hex');
-  const ciphertext = Buffer.from(ciphertextHex, 'hex');
-
-  // Creación del objeto Decipher
-  const decipher = crypto.createDecipheriv(ALGORITHM, CONFIG.AES_KEY, iv, {
+  const [ivHex, authTagHex, ciphertextHex] = encryptedPayload.split(':');
+  const decipher = crypto.createDecipheriv(ALGORITHM, usarLlave(FINALIDADES.CIFRADO), Buffer.from(ivHex, 'hex'), {
     authTagLength: AUTH_TAG_LENGTH_BYTES
   });
+  decipher.setAAD(Buffer.from(associatedData, 'utf8'));
+  decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
 
-  if (associatedData) {
-    decipher.setAAD(Buffer.from(associatedData, 'utf8'));
-  }
-
-  // Establecer el tag de autenticación esperado
-  decipher.setAuthTag(authTag);
-
-  // Descifrado y verificación matemática del tag
   try {
     const decrypted = Buffer.concat([
-      decipher.update(ciphertext),
+      decipher.update(Buffer.from(ciphertextHex, 'hex')),
       decipher.final()
     ]);
     return decrypted.toString('utf8');
-  } catch (err) {
-    throw new Error(`Fallo de Autenticidad en Descifrado AES-256-GCM: Los datos han sido alterados o la llave es inválida. Detalle: ${err.message}`);
+  } catch {
+    throw errorDescifrado();
   }
+}
+
+function errorDescifrado() {
+  const error = new Error('Fallo de Autenticidad en Descifrado AES-256-GCM: dato alterado, contexto incorrecto o llave inválida.');
+  error.code = 'CIFRADO_INVALIDO';
+  return error;
 }
 
 /**
@@ -104,16 +108,17 @@ export function decryptField(encryptedPayload, associatedData = '') {
  * @param {string} encryptedPayload
  */
 export function inspectCipherPayload(encryptedPayload) {
+  if (!esPayloadCifrado(encryptedPayload)) return { valid: false };
   const parts = encryptedPayload.split(':');
-  if (parts.length !== 3) return { valid: false };
 
   return {
+    valid: true,
     algorithm: ALGORITHM,
     ivHex: parts[0],
-    ivBytes: Buffer.from(parts[0], 'hex').length,
+    ivBytes: parts[0].length / 2,
     authTagHex: parts[1],
-    authTagBytes: Buffer.from(parts[1], 'hex').length,
+    authTagBytes: parts[1].length / 2,
     ciphertextHex: parts[2],
-    cipherSizeBytes: Buffer.from(parts[2], 'hex').length
+    cipherSizeBytes: parts[2].length / 2
   };
 }

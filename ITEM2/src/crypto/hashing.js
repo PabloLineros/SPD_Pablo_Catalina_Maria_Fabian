@@ -8,6 +8,26 @@ import { CONFIG } from '../config/env.js';
  * ataques de diccionario, tablas arcoíris (Rainbow Tables) y fuerza bruta con GPUs.
  */
 
+// bcrypt ignora silenciosamente todo lo que exceda 72 bytes: se rechaza explícitamente.
+const BCRYPT_MAX_BYTES = 72;
+const LARGO_MINIMO = 12;
+
+let hashSenuelo = null;
+
+/**
+ * Política mínima de contraseñas (OWASP ASVS 2.1): largo >= 12 y <= 72 bytes.
+ * @returns {string|null} Motivo del rechazo, o null si es aceptable.
+ */
+export function validarPoliticaPassword(password) {
+  if (typeof password !== 'string' || password.length < LARGO_MINIMO) {
+    return `La contraseña debe tener al menos ${LARGO_MINIMO} caracteres.`;
+  }
+  if (Buffer.byteLength(password, 'utf8') > BCRYPT_MAX_BYTES) {
+    return `La contraseña no puede superar ${BCRYPT_MAX_BYTES} bytes.`;
+  }
+  return null;
+}
+
 /**
  * Genera un hash irreversible a partir de una contraseña en texto plano.
  * @param {string} plainPassword Contraseña ingresada por el usuario.
@@ -17,25 +37,32 @@ export async function hashPassword(plainPassword) {
   if (!plainPassword || typeof plainPassword !== 'string') {
     throw new Error('La contraseña debe ser una cadena de texto no vacía.');
   }
+  if (Buffer.byteLength(plainPassword, 'utf8') > BCRYPT_MAX_BYTES) {
+    throw new Error(`La contraseña no puede superar ${BCRYPT_MAX_BYTES} bytes.`);
+  }
 
-  // Generación de Salt criptográficamente seguro con el factor de costo configurado
   const salt = await bcrypt.genSalt(CONFIG.BCRYPT_ROUNDS);
-  const hash = await bcrypt.hash(plainPassword, salt);
-  return hash;
+  return bcrypt.hash(plainPassword, salt);
 }
 
 /**
- * Verifica si una contraseña candidata coincide con el hash almacenado en la base de datos.
- * La operación bcrypt.compare es constante en tiempo para mitigar Timing Attacks.
+ * Verifica si una contraseña candidata coincide con el hash almacenado.
+ * Si no existe usuario (storedHash vacío) se compara contra un hash señuelo, para que
+ * el tiempo de respuesta no revele si el correo está registrado (enumeración de usuarios).
  * @param {string} candidatePassword Contraseña ingresada en el formulario de inicio de sesión.
- * @param {string} storedHash Hash recuperado de la base de datos.
- * @returns {Promise<boolean>} True si la contraseña es correcta, False de lo contrario.
+ * @param {string|null} storedHash Hash recuperado de la base de datos (o null).
+ * @returns {Promise<boolean>}
  */
 export async function verifyPassword(candidatePassword, storedHash) {
-  if (!candidatePassword || !storedHash) {
+  if (typeof candidatePassword !== 'string') {
+    candidatePassword = '';
+  }
+  if (!storedHash) {
+    hashSenuelo ??= bcrypt.hashSync('senuelo-no-es-una-cuenta', CONFIG.BCRYPT_ROUNDS);
+    await bcrypt.compare(candidatePassword, hashSenuelo);
     return false;
   }
-  return await bcrypt.compare(candidatePassword, storedHash);
+  return bcrypt.compare(candidatePassword, storedHash);
 }
 
 /**
@@ -51,15 +78,13 @@ export function inspectBcryptHash(hash) {
   const algorithm = parts[1];
   const cost = parts[2];
   const saltAndHash = parts[3];
-  const salt = saltAndHash.substring(0, 22);
-  const rawHash = saltAndHash.substring(22);
 
   return {
     valid: true,
     algorithm: `bcrypt (${algorithm})`,
     costFactorRounds: parseInt(cost, 10),
     iterations: 2 ** parseInt(cost, 10),
-    saltBase64: salt,
-    hashDigest: rawHash
+    saltBase64: saltAndHash.substring(0, 22),
+    hashDigest: saltAndHash.substring(22)
   };
 }
